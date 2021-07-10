@@ -1,0 +1,33 @@
+import numpy as np
+
+import torch
+from torch.utils.data import Dataset
+from nnAudio.Spectrogram import CQT1992v2
+
+class TrainDataset(Dataset):
+    def __init__(self, CFG, df, transform=None):
+        self.df = df
+        self.file_names = df['file_path'].values
+        self.labels = df['target'].values
+        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=1024, hop_length=64)
+        self.transform = transform
+        
+    def __len__(self):
+        return len(self.df)
+    
+    def apply_qtransform(self, waves, transform):
+        waves = np.hstack(waves)
+        waves = waves / np.max(waves)
+        waves = torch.from_numpy(waves).float()
+        image = transform(waves)
+        return image
+
+    def __getitem__(self, idx):
+        file_path = self.file_names[idx]
+        waves = np.load(file_path)
+        image = self.apply_qtransform(waves, self.wave_transform)
+        if self.transform:
+            image = image.squeeze().numpy()
+            image = self.transform(image=image)['image']
+        label = torch.tensor(self.labels[idx]).float()
+        return image, label

@@ -1,0 +1,12 @@
+pandas
+numpy
+Pillow
+librosa
+torch==1.9.0
+joblib
+tqdm
+timm==0.4.12
+nnAudio==0.2.4
+albumentations==1.0.2
+black
+transformers
