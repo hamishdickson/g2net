@@ -5,9 +5,10 @@ import torch
 
 from sklearn.metrics import roc_auc_score
 
+
 def set_seeds(seed=42):
     random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -21,6 +22,7 @@ def get_score(y_true, y_pred):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 
