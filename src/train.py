@@ -3,6 +3,7 @@ import pandas as pd
 
 import torch
 import torch.nn as nn
+from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
 import transformers
@@ -24,10 +25,10 @@ warnings.filterwarnings("ignore")
 class CFG:
     seed = 42
     n_fold = 5
-    epochs = 10
-    batch_size = 64
+    epochs = 4
+    batch_size = 32
     num_workers = 8
-    model_name = "tf_efficientnet_b0_ns"
+    model_name = "tf_efficientnet_b7_ns"
     target_size = 1
     lr = 1e-3
     weight_decay = 1e-6
@@ -95,7 +96,11 @@ def train_loop(folds, fold):
     )
 
     # TRYME a scheduler?
-    scheduler = None
+    scheduler = transformers.get_linear_schedule_with_warmup(
+        optimizer=optimizer,
+        num_warmup_steps=0.06*CFG.epochs*len(train_loader),
+        num_training_steps=CFG.epochs*len(train_loader)
+    )
 
     criterion = nn.BCEWithLogitsLoss()
 
@@ -105,7 +110,7 @@ def train_loop(folds, fold):
     es_count = 0
 
     for epoch in range(CFG.epochs):
-        ave_train_loss = engine.train_fn(CFG, model, train_loader, criterion, optimizer)
+        ave_train_loss = engine.train_fn(CFG, model, train_loader, criterion, optimizer, scheduler)
 
         ave_valid_loss, preds = engine.valid_fn(valid_loader, model, criterion)
 

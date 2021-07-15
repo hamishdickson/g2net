@@ -25,6 +25,6 @@ if __name__ == "__main__":
     train["fold"] = train["fold"].astype(int)
     print(train.groupby(["fold", "target"]).size())
 
-    train.to_csv("input/train_folds.csv")
+    train.to_csv("input/train_folds.csv", index=False)
 
     print(train.head())

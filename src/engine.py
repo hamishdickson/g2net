@@ -4,7 +4,7 @@ from tqdm import tqdm
 from . import utils
 
 
-def train_fn(CFG, model, train_loader, criterion, optimizer):
+def train_fn(CFG, model, train_loader, criterion, optimizer, scheduler):
     losses = utils.AverageMeter()
     # switch to train model
     model.train()
@@ -26,6 +26,8 @@ def train_fn(CFG, model, train_loader, criterion, optimizer):
         )
 
         optimizer.step()
+        scheduler.step()
+        
         optimizer.zero_grad()
 
         tk0.set_postfix(train_loss=losses.avg, grad_norm=grad_norm)
