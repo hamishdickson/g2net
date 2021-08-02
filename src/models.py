@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import timm
 
+from torch.cuda.amp import autocast
 
 class CustomModel(nn.Module):
     def __init__(self, cfg, pretrained=False):
@@ -14,5 +15,6 @@ class CustomModel(nn.Module):
         self.model.classifier = nn.Linear(self.n_features, self.cfg.target_size)
 
     def forward(self, x):
-        output = self.model(x)
-        return output
+        with autocast():
+            output = self.model(x)
+            return output

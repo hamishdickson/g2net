@@ -6,6 +6,8 @@ import torch.nn as nn
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 
+from torch.cuda.amp import GradScaler
+
 import transformers
 
 import albumentations as A
@@ -25,13 +27,13 @@ warnings.filterwarnings("ignore")
 class CFG:
     seed = 42
     n_fold = 5
-    epochs = 4
-    batch_size = 32
+    epochs = 5
+    batch_size = 64
     num_workers = 8
     model_name = "tf_efficientnet_b7_ns"
     target_size = 1
     lr = 1e-3
-    weight_decay = 1e-6
+    weight_decay = 1e-5
     max_grad_norm = 1000
     es_round = 3
 
@@ -109,8 +111,10 @@ def train_loop(folds, fold):
 
     es_count = 0
 
+    scaler = GradScaler()
+
     for epoch in range(CFG.epochs):
-        ave_train_loss = engine.train_fn(CFG, model, train_loader, criterion, optimizer, scheduler)
+        ave_train_loss = engine.train_fn(CFG, model, train_loader, criterion, optimizer, scheduler, scaler)
 
         ave_valid_loss, preds = engine.valid_fn(valid_loader, model, criterion)
 
@@ -158,7 +162,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in range(CFG.n_fold):
+    for fold in [0]:
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])
         get_result(_oof_df)
