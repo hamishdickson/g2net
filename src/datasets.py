@@ -11,7 +11,7 @@ class TrainDataset(Dataset):
         self.file_names = df["file_path"].values
         self.labels = df["target"].values
         # TRYME worth playing with these values
-        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=1024, hop_length=64)
+        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=1024, hop_length=16)
         self.transform = transform
 
     def __len__(self):

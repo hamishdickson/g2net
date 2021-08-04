@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 from torch.cuda.amp import GradScaler
 
@@ -27,9 +28,9 @@ warnings.filterwarnings("ignore")
 class CFG:
     seed = 42
     n_fold = 5
-    epochs = 5
-    batch_size = 64
-    num_workers = 8
+    epochs = 4
+    batch_size = 32
+    num_workers = 32
     model_name = "tf_efficientnet_b7_ns"
     target_size = 1
     lr = 1e-3
@@ -56,6 +57,7 @@ def get_transforms(*, data):
 
 
 def train_loop(folds, fold):
+    writer = SummaryWriter()
     # ====================================================
     # loader
     # ====================================================
@@ -104,6 +106,8 @@ def train_loop(folds, fold):
         num_training_steps=CFG.epochs*len(train_loader)
     )
 
+    # scheduler = None
+
     criterion = nn.BCEWithLogitsLoss()
 
     best_score = 0.0
@@ -119,6 +123,10 @@ def train_loop(folds, fold):
         ave_valid_loss, preds = engine.valid_fn(valid_loader, model, criterion)
 
         score = utils.get_score(valid_labels, preds)
+
+        writer.add_scalar('Loss/train', ave_train_loss, epoch + 0)
+        writer.add_scalar('Loss/valid', ave_valid_loss, epoch + 0)
+        writer.add_scalar('roc', score, epoch + 0)
 
         print(f"results for epoch {epoch + 1}: score {score}")
 
@@ -162,7 +170,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in [0]:
+    for fold in [1,2,3,4]:
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])
         get_result(_oof_df)

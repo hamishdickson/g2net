@@ -13,8 +13,8 @@ def train_fn(CFG, model, train_loader, criterion, optimizer, scheduler, scaler):
     tk0 = tqdm(train_loader, total=len(train_loader))
 
     for images, labels in tk0:
-        images = images.cuda()
-        labels = labels.cuda()
+        images = images.cuda(non_blocking=True)
+        labels = labels.cuda(non_blocking=True)
 
         with autocast():
             y_preds = model(images)
@@ -25,10 +25,13 @@ def train_fn(CFG, model, train_loader, criterion, optimizer, scheduler, scaler):
         scaler.scale(loss).backward()
 
         scaler.step(optimizer)
-        scheduler.step()
+        if scheduler:
+            scheduler.step()
         scaler.update()
         
-        optimizer.zero_grad()
+        # optimizer.zero_grad()
+        for param in model.parameters():
+            param.grad = None
 
         tk0.set_postfix(train_loss=losses.avg)
 
@@ -44,8 +47,8 @@ def valid_fn(valid_loader, model, criterion):
 
     tk0 = tqdm(valid_loader, total=len(valid_loader))
     for images, labels in tk0:
-        images = images.cuda()
-        labels = labels.cuda()
+        images = images.cuda(non_blocking=True)
+        labels = labels.cuda(non_blocking=True)
         batch_size = labels.size(0)
         # compute loss
         with autocast():
@@ -56,7 +59,7 @@ def valid_fn(valid_loader, model, criterion):
         # record accuracy
         preds.append(y_preds.sigmoid().to("cpu").numpy())
 
-        tk0.set_postfix(train_loss=losses.avg)
+        tk0.set_postfix(valid_loss=losses.avg)
 
     predictions = np.concatenate(preds)
     return losses.avg, predictions
