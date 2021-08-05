@@ -118,7 +118,7 @@ def train_loop(folds, fold):
     scaler = GradScaler()
 
     for epoch in range(CFG.epochs):
-        ave_train_loss = engine.train_fn(CFG, model, train_loader, criterion, optimizer, scheduler, scaler)
+        ave_train_loss = engine.train_fn(epoch, CFG, model, train_loader, criterion, optimizer, scheduler, scaler, writer)
 
         ave_valid_loss, preds = engine.valid_fn(valid_loader, model, criterion)
 
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in [1,2,3,4]:
+    for fold in [2,3,4]:
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])
         get_result(_oof_df)

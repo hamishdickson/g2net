@@ -5,14 +5,14 @@ from . import utils
 
 from torch.cuda.amp import autocast
 
-def train_fn(CFG, model, train_loader, criterion, optimizer, scheduler, scaler):
+def train_fn(epoch, CFG, model, train_loader, criterion, optimizer, scheduler, scaler, writer):
     losses = utils.AverageMeter()
     # switch to train model
     model.train()
 
     tk0 = tqdm(train_loader, total=len(train_loader))
 
-    for images, labels in tk0:
+    for idx, (images, labels) in enumerate(tk0):
         images = images.cuda(non_blocking=True)
         labels = labels.cuda(non_blocking=True)
 
@@ -34,6 +34,9 @@ def train_fn(CFG, model, train_loader, criterion, optimizer, scheduler, scaler):
             param.grad = None
 
         tk0.set_postfix(train_loss=losses.avg)
+
+        if idx % 100 == 0:
+            writer.add_scalar(f'Loss/mid-train_{epoch}', losses.avg, idx*CFG.batch_size/48)
 
     return losses.avg
 
