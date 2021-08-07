@@ -19,6 +19,20 @@ class CustomModel(nn.Module):
             output = self.model(x)
             return output
 
+class V2Model(nn.Module):
+    def __init__(self, cfg, pretrained=False):
+        super().__init__()
+        self.cfg = cfg
+        self.model = timm.create_model(
+            self.cfg.model_name, pretrained=pretrained, in_chans=3
+        )
+        self.n_features = self.model.classifier.in_features
+        self.model.classifier = nn.Linear(self.n_features, self.cfg.target_size)
+
+    def forward(self, x):
+        with autocast():
+            output = self.model(x)
+            return output
 
 
 class ViTModel(nn.Module):

@@ -24,6 +24,18 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+# class CFG:
+#     seed = 42
+#     n_fold = 5
+#     epochs = 4
+#     batch_size = 32
+#     num_workers = 32
+#     model_name = "tf_efficientnetv2_l"
+#     target_size = 1
+#     lr = 1e-3
+#     weight_decay = 1e-5
+#     max_grad_norm = 1000
+#     es_round = 3
 
 class CFG:
     seed = 42
@@ -88,6 +100,13 @@ def train_loop(folds, fold):
         valid_dataset = datasets.ViTTrainDataset(
             CFG, valid_folds, transform=get_transforms(data="train")
         )
+    elif "v2" in CFG.model_name:
+        train_dataset = datasets.ViTTrainDataset(
+            CFG, train_folds, transform=get_transforms(data="train")
+        )
+        valid_dataset = datasets.ViTTrainDataset(
+            CFG, valid_folds, transform=get_transforms(data="train")
+        )
     else:
         train_dataset = datasets.TrainDataset(
             CFG, train_folds, transform=get_transforms(data="valid")
@@ -115,6 +134,8 @@ def train_loop(folds, fold):
 
     if "deit" in CFG.model_name:
         model = models.ViTModel(CFG, pretrained=True)
+    elif "v2" in CFG.model_name:
+        model = models.V2Model(CFG, pretrained=True)
     else:
         model = models.CustomModel(CFG, pretrained=True)
     model.cuda()
