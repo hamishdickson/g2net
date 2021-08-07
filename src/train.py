@@ -38,6 +38,19 @@ class CFG:
     max_grad_norm = 1000
     es_round = 3
 
+# class CFG:
+#     seed = 42
+#     n_fold = 5
+#     epochs = 4
+#     batch_size = 64
+#     num_workers = 32
+#     model_name = "deit_base_distilled_patch16_384"
+#     target_size = 1
+#     lr = 1e-3
+#     weight_decay = 1e-5
+#     max_grad_norm = 1000
+#     es_round = 3
+
 
 def get_transforms(*, data):
 
@@ -68,12 +81,20 @@ def train_loop(folds, fold):
     valid_folds = folds.loc[val_idx].reset_index(drop=True)
     valid_labels = valid_folds["target"].values
 
-    train_dataset = datasets.TrainDataset(
-        CFG, train_folds, transform=get_transforms(data="train")
-    )
-    valid_dataset = datasets.TrainDataset(
-        CFG, valid_folds, transform=get_transforms(data="train")
-    )
+    if "deit" in CFG.model_name:
+        train_dataset = datasets.ViTTrainDataset(
+            CFG, train_folds, transform=get_transforms(data="train")
+        )
+        valid_dataset = datasets.ViTTrainDataset(
+            CFG, valid_folds, transform=get_transforms(data="train")
+        )
+    else:
+        train_dataset = datasets.TrainDataset(
+            CFG, train_folds, transform=get_transforms(data="valid")
+        )
+        valid_dataset = datasets.TrainDataset(
+            CFG, valid_folds, transform=get_transforms(data="valid")
+        )
 
     train_loader = DataLoader(
         train_dataset,
@@ -92,7 +113,10 @@ def train_loop(folds, fold):
         drop_last=False,
     )
 
-    model = models.CustomModel(CFG, pretrained=True)
+    if "deit" in CFG.model_name:
+        model = models.ViTModel(CFG, pretrained=True)
+    else:
+        model = models.CustomModel(CFG, pretrained=True)
     model.cuda()
 
     optimizer = transformers.AdamW(
@@ -170,7 +194,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in [4]:
+    for fold in [0, 1, 2, 3, 4]:
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])
         get_result(_oof_df)

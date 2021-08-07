@@ -21,14 +21,14 @@ class CustomModel(nn.Module):
 
 
 
-class VitModel(nn.Module):
+class ViTModel(nn.Module):
     def __init__(self, cfg, pretrained=False):
         super().__init__()
         self.cfg = cfg
         
         self.embedding_size = 512
         self.backbone = timm.create_model(
-            self.cfg.model_name, pretrained=pretrained, in_chans=1
+            self.cfg.model_name, pretrained=pretrained, in_chans=3, img_size=(57, 257)
         )
         self.out_features = 768
         self.backbone.classifier = nn.Linear(self.out_features, self.cfg.target_size)
