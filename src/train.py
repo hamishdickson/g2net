@@ -36,6 +36,7 @@ warnings.filterwarnings("ignore")
 #     weight_decay = 1e-5
 #     max_grad_norm = 1000
 #     es_round = 3
+#     input_shape = "3d"
 
 class CFG:
     seed = 42
@@ -49,33 +50,38 @@ class CFG:
     weight_decay = 1e-5
     max_grad_norm = 1000
     es_round = 3
+    input_shape = "3d"
 
+# from 2012.12877
 # class CFG:
 #     seed = 42
 #     n_fold = 5
-#     epochs = 4
+#     epochs = 2
 #     batch_size = 64
 #     num_workers = 32
-#     model_name = "deit_base_distilled_patch16_384"
+#     model_name = "deit_base_distilled_patch16_224"
 #     target_size = 1
-#     lr = 1e-3
-#     weight_decay = 1e-5
+#     lr = 1e-3 #5e-4*(batch_size)/512
+#     weight_decay = 0 #0.05
 #     max_grad_norm = 1000
 #     es_round = 3
+#     input_shape = "3d"
 
 
 def get_transforms(*, data):
 
     if data == "train":
         return A.Compose(
-            [
+            [   
+                # A.Resize(57, 384),
                 ToTensorV2(),
             ]
         )
 
     elif data == "valid":
         return A.Compose(
-            [
+            [   
+                # A.Resize(57, 384),
                 ToTensorV2(),
             ]
         )
@@ -93,18 +99,11 @@ def train_loop(folds, fold):
     valid_folds = folds.loc[val_idx].reset_index(drop=True)
     valid_labels = valid_folds["target"].values
 
-    if "deit" in CFG.model_name:
-        train_dataset = datasets.ViTTrainDataset(
+    if CFG.input_shape == "3d":
+        train_dataset = datasets.ThreeTrainDataset(
             CFG, train_folds, transform=get_transforms(data="train")
         )
-        valid_dataset = datasets.ViTTrainDataset(
-            CFG, valid_folds, transform=get_transforms(data="train")
-        )
-    elif "v2" in CFG.model_name:
-        train_dataset = datasets.ViTTrainDataset(
-            CFG, train_folds, transform=get_transforms(data="train")
-        )
-        valid_dataset = datasets.ViTTrainDataset(
+        valid_dataset = datasets.ThreeTrainDataset(
             CFG, valid_folds, transform=get_transforms(data="train")
         )
     else:
@@ -137,14 +136,13 @@ def train_loop(folds, fold):
     elif "v2" in CFG.model_name:
         model = models.V2Model(CFG, pretrained=True)
     else:
-        model = models.CustomModel(CFG, pretrained=True)
+        model = models.V2Model(CFG, pretrained=True)
     model.cuda()
 
     optimizer = transformers.AdamW(
         model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
     )
 
-    # TRYME a scheduler?
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=0.06*CFG.epochs*len(train_loader),
@@ -215,7 +213,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in [4]:
+    for fold in [1,2,3,4]:
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])
         get_result(_oof_df)

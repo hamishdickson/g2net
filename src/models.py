@@ -54,6 +54,7 @@ class ViTModel(nn.Module):
                 torch.nn.PReLU()
             )
         self.head = nn.Linear(self.embedding_size, self.cfg.target_size)
+        torch.nn.init.normal_(self.head.weight, std=0.02)
 
     def forward(self, x):
         with autocast():
