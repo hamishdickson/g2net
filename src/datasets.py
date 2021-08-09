@@ -51,17 +51,17 @@ class ThreeTrainDataset(Dataset):
 
     def apply_qtransform(self, waves, transform):
         w0 = waves[0]
-        w0 = w0 / np.max(w0)
+        w0 = w0 / 4.615211621383077e-20 #np.max(w0)
         w0 = torch.from_numpy(w0).float()
         i0 = transform(w0)
 
         w1 = waves[1]
-        w1 = w1 / np.max(w1)
+        w1 = w1 / 4.1438353591025024e-20 #np.max(w1)
         w1 = torch.from_numpy(w1).float()
         i1 = transform(w1)
 
         w2 = waves[2]
-        w2 = w2 / np.max(w2)
+        w2 = w2 / 1.1161063663761836e-20 #np.max(w2)
         w2 = torch.from_numpy(w2).float()
         i2 = transform(w2)
 

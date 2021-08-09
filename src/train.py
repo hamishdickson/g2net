@@ -56,12 +56,12 @@ class CFG:
 # class CFG:
 #     seed = 42
 #     n_fold = 5
-#     epochs = 2
+#     epochs = 1
 #     batch_size = 64
 #     num_workers = 32
 #     model_name = "deit_base_distilled_patch16_224"
 #     target_size = 1
-#     lr = 1e-3 #5e-4*(batch_size)/512
+#     lr = 5e-4*(batch_size)/512
 #     weight_decay = 0 #0.05
 #     max_grad_norm = 1000
 #     es_round = 3
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in [1,2,3,4]:
+    for fold in [0]:
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])
         get_result(_oof_df)
