@@ -52,16 +52,19 @@ class ThreeTrainDataset(Dataset):
     def apply_qtransform(self, waves, transform):
         w0 = waves[0]
         w0 = w0 / 4.615211621383077e-20 #np.max(w0)
+        # w0 = w0 + (1.7259105809493188e-20 / 2)
         w0 = torch.from_numpy(w0).float()
         i0 = transform(w0)
 
         w1 = waves[1]
         w1 = w1 / 4.1438353591025024e-20 #np.max(w1)
+        # w1 = w1 + (1.7262760441525487e-20 / 2)
         w1 = torch.from_numpy(w1).float()
         i1 = transform(w1)
 
         w2 = waves[2]
         w2 = w2 / 1.1161063663761836e-20 #np.max(w2)
+        # w2 = w2 + (4.276536160007436e-21 / 2)
         w2 = torch.from_numpy(w2).float()
         i2 = transform(w2)
 
@@ -72,11 +75,12 @@ class ThreeTrainDataset(Dataset):
     def __getitem__(self, idx):
         file_path = self.file_names[idx]
         waves = np.load(file_path)
+        # if self.transform:
+        #     waves = waves.squeeze()
+        #     waves = self.transform(waves, sample_rate=2048)
         image = self.apply_qtransform(waves, self.wave_transform)
         # print(image.shape)
-        # if self.transform:
-        #     image = image.squeeze()
-        #     image = self.transform(image=image)["image"]
+
         label = torch.tensor(self.labels[idx]).float()
         # print(image.shape)
         return image, label

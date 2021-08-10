@@ -14,6 +14,7 @@ import transformers
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from albumentations import ImageOnlyTransform
+from audiomentations import Compose, AddGaussianSNR, AddGaussianNoise, PitchShift, AddBackgroundNoise, AddShortNoises, Gain
 
 from . import engine
 from . import datasets
@@ -28,7 +29,7 @@ warnings.filterwarnings("ignore")
 #     seed = 42
 #     n_fold = 5
 #     epochs = 4
-#     batch_size = 32
+#     batch_size = 64
 #     num_workers = 32
 #     model_name = "tf_efficientnetv2_l"
 #     target_size = 1
@@ -74,6 +75,9 @@ def get_transforms(*, data):
         return A.Compose(
             [   
                 # A.Resize(57, 384),
+                # AddGaussianNoise(p=0.2),
+                # AddGaussianSNR(p=0.2),
+                # Gain(min_gain_in_db=-15,max_gain_in_db=15,p=0.3)
                 ToTensorV2(),
             ]
         )
@@ -135,13 +139,19 @@ def train_loop(folds, fold):
         model = models.ViTModel(CFG, pretrained=True)
     elif "v2" in CFG.model_name:
         model = models.V2Model(CFG, pretrained=True)
-    else:
+    elif CFG.input_shape == "3d":
         model = models.V2Model(CFG, pretrained=True)
+    else:
+        model = models.CustomModel(CFG, pretrained=True)
     model.cuda()
 
     optimizer = transformers.AdamW(
         model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
     )
+
+    # optimizer = torch.optim.RMSprop(
+    #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
+    # )
 
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
@@ -149,9 +159,15 @@ def train_loop(folds, fold):
         num_training_steps=CFG.epochs*len(train_loader)
     )
 
+    # scheduler = transformers.get_constant_schedule_with_warmup(
+    #     optimizer=optimizer,
+    #     num_warmup_steps=0.06*CFG.epochs*len(train_loader)
+    # )
+
     # scheduler = None
 
     criterion = nn.BCEWithLogitsLoss()
+    # criterion = LabelSmoothingLoss()
 
     best_score = 0.0
     best_loss = np.inf
@@ -213,7 +229,8 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in [0]:
+    for fold in [3, 4]:
+        print(f"training fold {fold}")
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])
         get_result(_oof_df)
