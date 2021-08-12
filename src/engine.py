@@ -5,7 +5,7 @@ from . import utils
 
 from torch.cuda.amp import autocast
 
-def train_fn(epoch, CFG, model, train_loader, criterion, optimizer, scheduler, scaler, writer):
+def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, scheduler, scaler, writer, valid_loader, es):
     losses = utils.AverageMeter()
     # switch to train model
     model.train()
@@ -13,8 +13,8 @@ def train_fn(epoch, CFG, model, train_loader, criterion, optimizer, scheduler, s
     tk0 = tqdm(train_loader, total=len(train_loader))
 
     for idx, (images, labels) in enumerate(tk0):
-        images = images.cuda(non_blocking=True)
-        labels = labels.cuda(non_blocking=True)
+        images = images.cuda()
+        labels = labels.cuda()
 
         with autocast():
             y_preds = model(images)
@@ -38,6 +38,15 @@ def train_fn(epoch, CFG, model, train_loader, criterion, optimizer, scheduler, s
         if idx % 100 == 0:
             writer.add_scalar(f'Loss/mid-train_{epoch}', losses.avg, idx*CFG.batch_size/48)
 
+        if (idx % 2000 == 0) and (idx > 0):
+            ave_valid_loss, preds, score = valid_fn(valid_loader, model, criterion)
+            model.train()
+            writer.add_scalar('Loss/valid2', ave_valid_loss, (idx+epoch*len(train_loader))*CFG.batch_size/48)
+            writer.add_scalar('roc2', score, (idx+epoch*len(train_loader))*CFG.batch_size/48)
+
+            es(score, model, f"models/{CFG.model_name}_fold{fold}_best_score.pth", preds)
+            
+
     return losses.avg
 
 
@@ -47,11 +56,13 @@ def valid_fn(valid_loader, model, criterion):
     # switch to evaluation mode
     model.eval()
     preds = []
+    _labels = []
 
     tk0 = tqdm(valid_loader, total=len(valid_loader))
-    for images, labels in tk0:
-        images = images.cuda(non_blocking=True)
-        labels = labels.cuda(non_blocking=True)
+    for idx, (images, labels) in enumerate(tk0):
+        # if idx % 4 == 0:
+        images = images.cuda()
+        labels = labels.cuda()
         batch_size = labels.size(0)
         # compute loss
         with autocast():
@@ -61,8 +72,12 @@ def valid_fn(valid_loader, model, criterion):
         losses.update(loss.item(), batch_size)
         # record accuracy
         preds.append(y_preds.sigmoid().to("cpu").numpy())
+        _labels.append(labels.to("cpu").numpy())
 
         tk0.set_postfix(valid_loss=losses.avg)
 
     predictions = np.concatenate(preds)
-    return losses.avg, predictions
+    valid_labels = np.concatenate(_labels)
+
+    score = utils.get_score(valid_labels, predictions)
+    return losses.avg, predictions, score

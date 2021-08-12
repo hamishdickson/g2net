@@ -43,8 +43,8 @@ class CFG:
     seed = 42
     n_fold = 5
     epochs = 4
-    batch_size = 32
-    num_workers = 32
+    batch_size = 64
+    num_workers = 42
     model_name = "tf_efficientnet_b7_ns"
     target_size = 1
     lr = 1e-3
@@ -57,13 +57,13 @@ class CFG:
 # class CFG:
 #     seed = 42
 #     n_fold = 5
-#     epochs = 1
+#     epochs = 10
 #     batch_size = 64
-#     num_workers = 32
+#     num_workers = 42
 #     model_name = "deit_base_distilled_patch16_224"
 #     target_size = 1
 #     lr = 5e-4*(batch_size)/512
-#     weight_decay = 0 #0.05
+#     weight_decay = 0.05
 #     max_grad_norm = 1000
 #     es_round = 3
 #     input_shape = "3d"
@@ -75,18 +75,21 @@ def get_transforms(*, data):
         return A.Compose(
             [   
                 # A.Resize(57, 384),
-                # AddGaussianNoise(p=0.2),
-                # AddGaussianSNR(p=0.2),
-                # Gain(min_gain_in_db=-15,max_gain_in_db=15,p=0.3)
                 ToTensorV2(),
             ]
         )
+    elif data == "audio":
+        return Compose([
+            AddGaussianNoise(p=0.1),
+            # AddGaussianSNR(p=0.2),
+            # Gain(min_gain_in_db=-15,max_gain_in_db=15,p=0.3)
+        ])
 
     elif data == "valid":
         return A.Compose(
             [   
                 # A.Resize(57, 384),
-                ToTensorV2(),
+                # ToTensorV2(),
             ]
         )
 
@@ -105,10 +108,10 @@ def train_loop(folds, fold):
 
     if CFG.input_shape == "3d":
         train_dataset = datasets.ThreeTrainDataset(
-            CFG, train_folds, transform=get_transforms(data="train")
+            CFG, train_folds, transform=None #get_transforms(data="audio")
         )
         valid_dataset = datasets.ThreeTrainDataset(
-            CFG, valid_folds, transform=get_transforms(data="train")
+            CFG, valid_folds, transform=None
         )
     else:
         train_dataset = datasets.TrainDataset(
@@ -128,7 +131,7 @@ def train_loop(folds, fold):
     )
     valid_loader = DataLoader(
         valid_dataset,
-        batch_size=CFG.batch_size * 2,
+        batch_size=42,
         shuffle=False,
         num_workers=CFG.num_workers,
         pin_memory=True,
@@ -149,25 +152,13 @@ def train_loop(folds, fold):
         model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
     )
 
-    # optimizer = torch.optim.RMSprop(
-    #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
-    # )
-
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
-        num_warmup_steps=0.06*CFG.epochs*len(train_loader),
+        num_warmup_steps=0, #0.06*CFG.epochs*len(train_loader),
         num_training_steps=CFG.epochs*len(train_loader)
     )
 
-    # scheduler = transformers.get_constant_schedule_with_warmup(
-    #     optimizer=optimizer,
-    #     num_warmup_steps=0.06*CFG.epochs*len(train_loader)
-    # )
-
-    # scheduler = None
-
     criterion = nn.BCEWithLogitsLoss()
-    # criterion = LabelSmoothingLoss()
 
     best_score = 0.0
     best_loss = np.inf
@@ -176,29 +167,35 @@ def train_loop(folds, fold):
 
     scaler = GradScaler()
 
+    es = utils.EarlyStopping(patience=100)
+
     for epoch in range(CFG.epochs):
-        ave_train_loss = engine.train_fn(epoch, CFG, model, train_loader, criterion, optimizer, scheduler, scaler, writer)
+        ave_train_loss = engine.train_fn(
+            epoch, 
+            fold,
+            CFG, 
+            model, 
+            train_loader, 
+            criterion, 
+            optimizer, 
+            scheduler, 
+            scaler, 
+            writer, 
+            valid_loader,
+            es
+        )
 
-        ave_valid_loss, preds = engine.valid_fn(valid_loader, model, criterion)
+        ave_valid_loss, preds, score = engine.valid_fn(valid_loader, model, criterion)
 
-        score = utils.get_score(valid_labels, preds)
-
-        writer.add_scalar('Loss/train', ave_train_loss, epoch + 0)
-        writer.add_scalar('Loss/valid', ave_valid_loss, epoch + 0)
-        writer.add_scalar('roc', score, epoch + 0)
+        writer.add_scalar('Loss/train', ave_train_loss, epoch)
+        writer.add_scalar('Loss/valid', ave_valid_loss, epoch)
+        writer.add_scalar('roc', score, epoch)
+        writer.add_scalar('Loss/valid2', ave_valid_loss, CFG.batch_size*len(train_loader)*(epoch + 1)/48)
+        writer.add_scalar('roc2', score, CFG.batch_size*len(train_loader)*(epoch + 1)/48)
 
         print(f"results for epoch {epoch + 1}: score {score}")
 
-        if score > best_score:
-            best_score = score
-            print(f"epoch {epoch + 1} - Save Best Score: {best_score:.4f} Model")
-            torch.save(
-                {"model": model.state_dict(), "preds": preds},
-                f"models/{CFG.model_name}_fold{fold}_best_score.pth",
-            )
-            es_count = 0
-        else:
-            es_count += 1
+        es(score, model, f"models/{CFG.model_name}_fold{fold}_best_score.pth", preds)
 
         print(f"es count {es_count}")
 
@@ -229,7 +226,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in [3, 4]:
+    for fold in [0]:
         print(f"training fold {fold}")
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])
