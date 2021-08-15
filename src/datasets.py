@@ -5,7 +5,8 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset
 from nnAudio.Spectrogram import CQT1992v2
-import albumentations as A
+import albumentations
+import random
 
 
 class TrainDataset(Dataset):
@@ -39,6 +40,69 @@ class TrainDataset(Dataset):
         return image, label
 
 
+# class ThreeTrainDataset(Dataset):
+#     def __init__(self, CFG, df, transform=None):
+#         self.df = df
+#         self.file_names = df["file_path"].values
+#         self.labels = df["target"].values
+#         # TRYME worth playing with these values
+#         # self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=16)
+#         self.transform = transform
+
+        
+
+#     def __len__(self):
+#         return len(self.df)
+
+#     def apply_qtransform(self, waves):
+#         if self.transform:
+#             # shift
+#             start = random.randint(0, 50)
+#             end = len(waves[0]) - 50 + start
+
+#             v = random.randint(0,10)
+#             cut_start = random.randint(0, len(waves[0]) - 1000)
+#             cut_end = cut_start + 1000
+#         else:
+#             start = 0
+#             end = -1
+#             v = -1
+
+        
+#         w0 = waves[0]
+#         # if v == 0:
+#         #     w0[cut_start:cut_end] = 0
+#         # w0 = w0[start:end]
+#         w0 = w0 / 4.615211621383077e-20 #np.max(w0)
+#         # w0 = w0 + (1.7259105809493188e-20 / 2)
+#         if self.transform:
+#             w0 = w0.squeeze()
+#             w0 = self.transform(w0, sample_rate=2048)
+#         w0 = torch.from_numpy(w0).float()
+
+#         w1 = waves[1]
+#         # if v == 1:
+#         #     w1[cut_start:cut_end] = 0
+#         # w1 = w1[start:end]
+#         w1 = w1 / 4.1438353591025024e-20 #np.max(w1)
+#         # w1 = w1 + (1.7262760441525487e-20 / 2)
+#         if self.transform:
+#             w1 = w1.squeeze()
+#             w1 = self.transform(w1, sample_rate=2048)
+#         w1 = torch.from_numpy(w1).float()
+
+#         w2 = waves[2]
+#         # if v == 2:
+#         #     w2[cut_start:cut_end] = 0
+#         # w2 = w2[start:end]
+#         w2 = w2 / 1.1161063663761836e-20 #np.max(w2)
+#         # w2 = w2 + (4.276536160007436e-21 / 2)
+#         if self.transform:
+#             w2 = w2.squeeze()
+#             w2 = self.transform(w2, sample_rate=2048)
+#         w2 = torch.from_numpy(w2).float()
+#         return w0, w1, w2
+
 
 class ThreeTrainDataset(Dataset):
     def __init__(self, CFG, df, transform=None):
@@ -49,8 +113,6 @@ class ThreeTrainDataset(Dataset):
         self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=16)
         self.transform = transform
 
-        
-
     def __len__(self):
         return len(self.df)
 
@@ -58,33 +120,35 @@ class ThreeTrainDataset(Dataset):
         w0 = waves[0]
         w0 = w0 / 4.615211621383077e-20 #np.max(w0)
         # w0 = w0 + (1.7259105809493188e-20 / 2)
-        if self.transform:
-            w0 = w0.squeeze()
-            w0 = self.transform(w0, sample_rate=2048)
-        w0 = np.clip(w0, -1, 1)
+        # if self.transform:
+        #     w0 = w0.squeeze()
+        #     w0 = self.transform(w0, sample_rate=2048)
+        # w0 = np.clip(w0, -1, 1)
         w0 = torch.from_numpy(w0).float()
         i0 = qtransform(w0)
 
         w1 = waves[1]
         w1 = w1 / 4.1438353591025024e-20 #np.max(w1)
         # w1 = w1 + (1.7262760441525487e-20 / 2)
-        if self.transform:
-            w1 = w1.squeeze()
-            w1 = self.transform(w1, sample_rate=2048)
-        w1 = np.clip(w1, -1, 1)
+        # if self.transform:
+        #     w1 = w1.squeeze()
+        #     w1 = self.transform(w1, sample_rate=2048)
+        # w1 = np.clip(w1, -1, 1)
         w1 = torch.from_numpy(w1).float()
         i1 = qtransform(w1)
 
         w2 = waves[2]
         w2 = w2 / 1.1161063663761836e-20 #np.max(w2)
         # w2 = w2 + (4.276536160007436e-21 / 2)
-        if self.transform:
-            w2 = w2.squeeze()
-            w2 = self.transform(w2, sample_rate=2048)
-        w2 = np.clip(w2, -1, 1)
+        # if self.transform:
+            # w2 = w2.squeeze()
+            # w2 = self.transform(w2, sample_rate=2048)
+        # w2 = np.clip(w2, -1, 1)
         w2 = torch.from_numpy(w2).float()
         i2 = qtransform(w2)
+
         image = np.vstack([i0, i1, i2])
+
         return image
 
 
@@ -97,6 +161,25 @@ class ThreeTrainDataset(Dataset):
         # if self.transform:
         #     image = image.squeeze().numpy()
         #     image = A.Normalize()(image=image)["image"]
+
+        if self.transform:
+            i0 = albumentations.CoarseDropout(p=0.5, min_holes=5, max_height=12, max_width=12)(image=image[0])
+            image[0] = i0['image']
+            # i0 = image[0].squeeze()
+            # image[0] = albumentations.Normalize()(image=i0)["image"]
+
+            i1 = albumentations.CoarseDropout(p=0.5, min_holes=5, max_height=12, max_width=12)(image=image[1])
+            image[1] = i1['image']
+            # i1 = image[1].squeeze()
+            # image[1] = albumentations.Normalize()(image=i1)["image"]
+
+            i2 = albumentations.CoarseDropout(p=0.5, min_holes=5, max_height=12, max_width=12)(image=image[2])
+            image[2] = i2['image']
+            # i2 = image[2].squeeze()
+            # image[2] = albumentations.Normalize()(image=i2)["image"]
+
+        # image = image.squeeze()
+        # image = albumentations.Normalize()(image=image)["image"]
 
         label = torch.tensor(self.labels[idx]).float()
         # print(image.shape)

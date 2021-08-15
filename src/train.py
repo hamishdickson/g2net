@@ -42,7 +42,7 @@ warnings.filterwarnings("ignore")
 class CFG:
     seed = 42
     n_fold = 5
-    epochs = 4
+    epochs = 6
     batch_size = 64
     num_workers = 42
     model_name = "tf_efficientnet_b7_ns"
@@ -68,7 +68,6 @@ class CFG:
 #     es_round = 3
 #     input_shape = "3d"
 
-
 def get_transforms(*, data):
 
     if data == "train":
@@ -80,8 +79,8 @@ def get_transforms(*, data):
         )
     elif data == "audio":
         return Compose([
-            AddGaussianNoise(p=0.1),
-            # AddGaussianSNR(p=0.2),
+            AddGaussianNoise(min_amplitude=0.0001, max_amplitude=0.0015, p=0.2),
+            AddGaussianSNR(p=0.2),
             # Gain(min_gain_in_db=-15,max_gain_in_db=15,p=0.3)
         ])
 
@@ -148,14 +147,16 @@ def train_loop(folds, fold):
         model = models.CustomModel(CFG, pretrained=True)
     model.cuda()
 
-    optimizer = transformers.AdamW(
-        model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
     )
-
+    # optimizer = transformers.AdamW(
+    #     model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
+    # )
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=0, #0.06*CFG.epochs*len(train_loader),
-        num_training_steps=CFG.epochs*len(train_loader)
+        num_training_steps=4*len(train_loader)
     )
 
     criterion = nn.BCEWithLogitsLoss()
