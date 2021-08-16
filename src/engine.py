@@ -25,8 +25,8 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
         scaler.scale(loss).backward()
 
         scaler.step(optimizer)
-        if epoch < 3:
-            if scheduler:
+        # if epoch < 3:
+        if scheduler:
                 scheduler.step()
         scaler.update()
         

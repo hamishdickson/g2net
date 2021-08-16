@@ -28,10 +28,10 @@ warnings.filterwarnings("ignore")
 # class CFG:
 #     seed = 42
 #     n_fold = 5
-#     epochs = 4
+#     epochs = 3
 #     batch_size = 64
 #     num_workers = 32
-#     model_name = "tf_efficientnetv2_l"
+#     model_name = "tf_efficientnet_b8"
 #     target_size = 1
 #     lr = 1e-3
 #     weight_decay = 1e-5
@@ -42,7 +42,7 @@ warnings.filterwarnings("ignore")
 class CFG:
     seed = 42
     n_fold = 5
-    epochs = 6
+    epochs = 3
     batch_size = 64
     num_workers = 42
     model_name = "tf_efficientnet_b7_ns"
@@ -53,11 +53,31 @@ class CFG:
     es_round = 3
     input_shape = "3d"
 
+# 1 detector at a time
+# class CFG:
+#     seed = 42
+#     n_fold = 5
+#     epochs = 4
+#     batch_size = 64
+#     num_workers = 42
+#     model_name = "tf_efficientnet_b7_ns"
+#     target_size = 1
+#     lr = 1e-3
+#     weight_decay = 1e-5
+#     max_grad_norm = 1000
+#     es_round = 3
+#     input_shape = "1d"
+#     detector = 0
+#     calibration = 4.615211621383077e-20
+#     calibration = 4.1438353591025024e-20
+#     calibration = 1.1161063663761836e-20
+
+
 # from 2012.12877
 # class CFG:
 #     seed = 42
 #     n_fold = 5
-#     epochs = 10
+#     epochs = 3
 #     batch_size = 64
 #     num_workers = 42
 #     model_name = "deit_base_distilled_patch16_224"
@@ -88,7 +108,7 @@ def get_transforms(*, data):
         return A.Compose(
             [   
                 # A.Resize(57, 384),
-                # ToTensorV2(),
+                ToTensorV2(),
             ]
         )
 
@@ -114,10 +134,10 @@ def train_loop(folds, fold):
         )
     else:
         train_dataset = datasets.TrainDataset(
-            CFG, train_folds, transform=get_transforms(data="valid")
+            CFG, train_folds, transform=None #get_transforms(data="valid")
         )
         valid_dataset = datasets.TrainDataset(
-            CFG, valid_folds, transform=get_transforms(data="valid")
+            CFG, valid_folds, transform=None #get_transforms(data="valid")
         )
 
     train_loader = DataLoader(
@@ -156,7 +176,7 @@ def train_loop(folds, fold):
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=0, #0.06*CFG.epochs*len(train_loader),
-        num_training_steps=4*len(train_loader)
+        num_training_steps=CFG.epochs*len(train_loader)
     )
 
     criterion = nn.BCEWithLogitsLoss()
