@@ -42,10 +42,10 @@ warnings.filterwarnings("ignore")
 class CFG:
     seed = 42
     n_fold = 5
-    epochs = 3
-    batch_size = 64
+    epochs = 4
+    batch_size = 32
     num_workers = 42
-    model_name = "tf_efficientnet_b7_ns"
+    model_name = "tf_efficientnet_b4_ns"
     target_size = 1
     lr = 1e-3
     weight_decay = 1e-5
@@ -77,7 +77,7 @@ class CFG:
 # class CFG:
 #     seed = 42
 #     n_fold = 5
-#     epochs = 3
+#     epochs = 25
 #     batch_size = 64
 #     num_workers = 42
 #     model_name = "deit_base_distilled_patch16_224"
@@ -157,7 +157,7 @@ def train_loop(folds, fold):
         drop_last=False,
     )
 
-    if "deit" in CFG.model_name:
+    if ("vit" in CFG.model_name) or ("deit" in CFG.model_name):
         model = models.ViTModel(CFG, pretrained=True)
     elif "v2" in CFG.model_name:
         model = models.V2Model(CFG, pretrained=True)
@@ -167,12 +167,12 @@ def train_loop(folds, fold):
         model = models.CustomModel(CFG, pretrained=True)
     model.cuda()
 
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
-    )
-    # optimizer = transformers.AdamW(
-    #     model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
+    # optimizer = torch.optim.Adam(
+    #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
     # )
+    optimizer = transformers.AdamW(
+        model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
+    )
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=0, #0.06*CFG.epochs*len(train_loader),
@@ -247,7 +247,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in [0]:
+    for fold in [0,1,2,3,4]:
         print(f"training fold {fold}")
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])

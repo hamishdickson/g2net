@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import timm
 
 from torch.cuda.amp import autocast
@@ -21,20 +22,20 @@ class CustomModel(nn.Module):
             output = self.model(x)
             return output
 
-class V2Model(nn.Module):
-    def __init__(self, cfg, pretrained=False):
-        super().__init__()
-        self.cfg = cfg
-        self.model = timm.create_model(
-            self.cfg.model_name, pretrained=pretrained, in_chans=3
-        )
-        self.n_features = self.model.classifier.in_features
-        self.model.classifier = nn.Linear(self.n_features, self.cfg.target_size)
+# class V2Model(nn.Module):
+#     def __init__(self, cfg, pretrained=False):
+#         super().__init__()
+#         self.cfg = cfg
+#         self.model = timm.create_model(
+#             self.cfg.model_name, pretrained=pretrained, in_chans=3
+#         )
+#         self.n_features = self.model.classifier.in_features
+#         self.model.classifier = nn.Linear(self.n_features, self.cfg.target_size)
 
-    def forward(self, x):
-        with autocast():
-            output = self.model(x)
-            return output
+#     def forward(self, x):
+#         with autocast():
+#             output = self.model(x)
+#             return output
 
 
 class V3Model(nn.Module):
@@ -69,58 +70,78 @@ class V3Model(nn.Module):
             return self.head(output)
 
 
+class V2Model(nn.Module):
+    def __init__(self, cfg, pretrained=False):
+        super().__init__()
+        self.cfg = cfg
+        self.model = timm.create_model(
+            self.cfg.model_name, pretrained=pretrained, in_chans=3
+        )
+        self.n_features = self.model.classifier.in_features
+        self.model.classifier = nn.Linear(self.n_features, self.cfg.target_size, bias=False)
+
+        # self.bn_0 = nn.BatchNorm1d(4096)
+        # self.bn_1 = nn.BatchNorm1d(4096)
+        # self.bn_2 = nn.BatchNorm1d(4096)
+
+        # self.calibrate_0 = nn.Linear(1, 1)
+        # self.calibrate_1 = nn.Linear(1, 1)
+        # self.calibrate_2 = nn.Linear(1, 1)
+        # self.calibrate_0 = nn.Conv1d(in_channels=1, out_channels=1, kernel_size=1)
+        # self.calibrate_1 = nn.Conv1d(in_channels=1, out_channels=1, kernel_size=1)
+        # self.calibrate_2 = nn.Conv1d(in_channels=1, out_channels=1, kernel_size=1)
+        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=16)
 
 
-# class V2Model(nn.Module):
-#     def __init__(self, cfg, pretrained=False):
-#         super().__init__()
-#         self.cfg = cfg
-#         self.model = timm.create_model(
-#             self.cfg.model_name, pretrained=pretrained, in_chans=3
-#         )
-#         self.n_features = self.model.classifier.in_features
-#         self.model.classifier = nn.Linear(self.n_features, self.cfg.target_size)
+    def forward(self, h, l, v):
+        with autocast():
+            # h = self.calibrate_0(h.unsqueeze(1))
+            # h = h.squeeze(1)
+            # l = self.calibrate_1(l.unsqueeze(1))
+            # l = l.squeeze(1)
+            # v = self.calibrate_2(v.unsqueeze(1))
+            # v = v.squeeze(1)
 
-#         self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=16)
+            h = self.wave_transform(h)
+            l = self.wave_transform(l)
+            v = self.wave_transform(v)
 
-#     def forward(self, h, l, v, aug=False):
-#         with autocast():
-#             h = self.wave_transform(h)
-#             l = self.wave_transform(l)
-#             v = self.wave_transform(v)
-#             if aug:
-#                 h = albumentations.CoarseDropout(p=0.2)(image=h)
-#                 l = albumentations.CoarseDropout(p=0.2)(image=l)
-#                 v = albumentations.CoarseDropout(p=0.2)(image=v)
-
-#             x = torch.stack([h, l, v], 1)
-#             output = self.model(x)
-#             return output
+            x = torch.stack([h, l, v], 1)
+            output = self.model(x)
+            return output
 
 class ViTModel(nn.Module):
     def __init__(self, cfg, pretrained=False):
         super().__init__()
         self.cfg = cfg
-        
-        self.embedding_size = 512
         self.backbone = timm.create_model(
             self.cfg.model_name, pretrained=pretrained, in_chans=3, img_size=(57, 257)
         )
+        self.embedding_size = 512
         self.out_features = 768
-        self.backbone.classifier = nn.Linear(self.out_features, self.cfg.target_size)
+        # self.backbone.head = nn.Linear(self.out_features, self.cfg.target_size)
+
+        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=16)
 
         self.neck = nn.Sequential(
-                # nn.Dropout(0.3),
+                nn.Dropout(0.3),
                 nn.Linear(self.out_features, self.embedding_size, bias=True),
                 nn.BatchNorm1d(self.embedding_size),
                 torch.nn.PReLU()
             )
-        self.head = nn.Linear(self.embedding_size, self.cfg.target_size)
+        self.head = nn.Linear(self.embedding_size, self.cfg.target_size, bias=False)
         torch.nn.init.normal_(self.head.weight, std=0.02)
 
-    def forward(self, x):
+    def forward(self, h, l, v):
         with autocast():
+            h = self.wave_transform(h)
+            l = self.wave_transform(l)
+            v = self.wave_transform(v)
+
+            x = torch.stack([h, l, v], 1)
+            # print("here")
             output = self.backbone.forward_features(x)
+            # print(output.shape)
             output = output[0] + output[1]
             output = self.neck(output)
 

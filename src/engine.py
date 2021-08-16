@@ -12,12 +12,14 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
 
     tk0 = tqdm(train_loader, total=len(train_loader))
 
-    for idx, (images, labels) in enumerate(tk0):
-        images = images.cuda()
+    for idx, (w0, w1, w2, labels) in enumerate(tk0):
+        w0 = w0.cuda()
+        w1 = w1.cuda()
+        w2 = w2.cuda()
         labels = labels.cuda()
 
         with autocast():
-            y_preds = model(images)
+            y_preds = model(w0, w1, w2)
             loss = criterion(y_preds.view(-1), labels)
 
         losses.update(loss.item(), labels.size(0))
@@ -39,7 +41,7 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
         if idx % 100 == 0:
             writer.add_scalar(f'Loss/mid-train_{epoch}', losses.avg, idx*CFG.batch_size/48)
 
-        if (idx % 2000 == 0) and (idx > 0):
+        if (idx % 4000 == 0) and (idx > 0):
             ave_valid_loss, preds, score = valid_fn(valid_loader, model, criterion)
             model.train()
             writer.add_scalar('Loss/valid2', ave_valid_loss, (idx+epoch*len(train_loader))*CFG.batch_size/48)
@@ -60,15 +62,16 @@ def valid_fn(valid_loader, model, criterion):
     _labels = []
 
     tk0 = tqdm(valid_loader, total=len(valid_loader))
-    for idx, (images, labels) in enumerate(tk0):
-        # if idx % 4 == 0:
-        images = images.cuda()
+    for idx, (w0, w1, w2, labels) in enumerate(tk0):
+        w0 = w0.cuda()
+        w1 = w1.cuda()
+        w2 = w2.cuda()
         labels = labels.cuda()
         batch_size = labels.size(0)
         # compute loss
         with autocast():
             with torch.no_grad():
-                y_preds = model(images)
+                y_preds = model(w0, w1, w2)
             loss = criterion(y_preds.view(-1), labels)
         losses.update(loss.item(), batch_size)
         # record accuracy
