@@ -42,10 +42,10 @@ warnings.filterwarnings("ignore")
 class CFG:
     seed = 42
     n_fold = 5
-    epochs = 4
+    epochs = 6
     batch_size = 32
-    num_workers = 42
-    model_name = "tf_efficientnet_b4_ns"
+    num_workers = 32
+    model_name = "tf_efficientnet_b7_ns"
     target_size = 1
     lr = 1e-3
     weight_decay = 1e-5
@@ -127,10 +127,10 @@ def train_loop(folds, fold):
 
     if CFG.input_shape == "3d":
         train_dataset = datasets.ThreeTrainDataset(
-            CFG, train_folds, transform=None #get_transforms(data="audio")
+            CFG, train_folds, transform=True #None #get_transforms(data="audio")
         )
         valid_dataset = datasets.ThreeTrainDataset(
-            CFG, valid_folds, transform=None
+            CFG, valid_folds, transform=False #None
         )
     else:
         train_dataset = datasets.TrainDataset(
@@ -167,12 +167,18 @@ def train_loop(folds, fold):
         model = models.CustomModel(CFG, pretrained=True)
     model.cuda()
 
-    # optimizer = torch.optim.Adam(
+    # base_optimizer = torch.optim.Adam(
     #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
     # )
-    optimizer = transformers.AdamW(
-        model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
+    base_optimizer = utils.MADGRAD(
+        model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
     )
+    # optimizer = transformers.AdamW(
+    #     model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
+    # )
+
+    optimizer = utils.Lookahead(base_optimizer, k=5, alpha=0.5)
+
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=0, #0.06*CFG.epochs*len(train_loader),
@@ -247,7 +253,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in [0,1,2,3,4]:
+    for fold in [0, 1, 2, 3, 4]:
         print(f"training fold {fold}")
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])

@@ -127,7 +127,7 @@ class TrainDataset(Dataset):
 #         return image, label
 
 class ThreeTrainDataset(Dataset):
-    def __init__(self, CFG, df, transform=None):
+    def __init__(self, CFG, df, transform=False):
         self.df = df
         self.file_names = df["file_path"].values
         self.labels = df["target"].values
@@ -138,16 +138,28 @@ class ThreeTrainDataset(Dataset):
         return len(self.df)
 
     def apply_qtransform(self, waves):
+        hide = random.randint(0, 5)
+
         w0 = waves[0]
-        w0 = w0 / 7.422368145063434e-21 #4.615211621383077e-20
+        if self.transform:
+            if hide == 0:
+                w0 = np.zeros(w0.shape)
+
+        w0 = w0 / 4.615211621383077e-20# 7.422368145063434e-21 #4.615211621383077e-20
         w0 = torch.from_numpy(w0).float()
 
         w1 = waves[1]
-        w1 = w1 / 7.418562450079042e-21 #4.1438353591025024e-20
+        if self.transform:
+            if hide == 1:
+                w1 = np.zeros(w1.shape)
+        w1 = w1 / 4.1438353591025024e-20 #7.418562450079042e-21 #4.1438353591025024e-20
         w1 = torch.from_numpy(w1).float()
 
         w2 = waves[2]
-        w2 = w2 / 1.837612126304118e-21 #6e-20
+        if self.transform:
+            if hide == 2:
+                w2 = np.zeros(w2.shape)
+        w2 = w2 / 6e-20 #1.837612126304118e-21 #6e-20
         w2 = torch.from_numpy(w2).float()
         return w0, w1, w2
 
