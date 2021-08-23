@@ -25,26 +25,12 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-# class CFG:
-#     seed = 42
-#     n_fold = 5
-#     epochs = 3
-#     batch_size = 64
-#     num_workers = 32
-#     model_name = "tf_efficientnet_b8"
-#     target_size = 1
-#     lr = 1e-3
-#     weight_decay = 1e-5
-#     max_grad_norm = 1000
-#     es_round = 3
-#     input_shape = "3d"
-
 class CFG:
     seed = 42
     n_fold = 5
-    epochs = 6
-    batch_size = 32
-    num_workers = 32
+    epochs = 4
+    batch_size = 64
+    num_workers = 42
     model_name = "tf_efficientnet_b7_ns"
     target_size = 1
     lr = 1e-3
@@ -52,25 +38,6 @@ class CFG:
     max_grad_norm = 1000
     es_round = 3
     input_shape = "3d"
-
-# 1 detector at a time
-# class CFG:
-#     seed = 42
-#     n_fold = 5
-#     epochs = 4
-#     batch_size = 64
-#     num_workers = 42
-#     model_name = "tf_efficientnet_b7_ns"
-#     target_size = 1
-#     lr = 1e-3
-#     weight_decay = 1e-5
-#     max_grad_norm = 1000
-#     es_round = 3
-#     input_shape = "1d"
-#     detector = 0
-#     calibration = 4.615211621383077e-20
-#     calibration = 4.1438353591025024e-20
-#     calibration = 1.1161063663761836e-20
 
 
 # from 2012.12877
@@ -93,7 +60,7 @@ def get_transforms(*, data):
     if data == "train":
         return A.Compose(
             [   
-                # A.Resize(57, 384),
+                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 ToTensorV2(),
             ]
         )
@@ -107,7 +74,7 @@ def get_transforms(*, data):
     elif data == "valid":
         return A.Compose(
             [   
-                # A.Resize(57, 384),
+                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 ToTensorV2(),
             ]
         )
@@ -118,6 +85,7 @@ def train_loop(folds, fold):
     # ====================================================
     # loader
     # ====================================================
+    # valid_df = pd.read_csv("input/train_folds_poor.csv")
     trn_idx = folds[folds["fold"] != fold].index
     val_idx = folds[folds["fold"] == fold].index
 
@@ -127,10 +95,10 @@ def train_loop(folds, fold):
 
     if CFG.input_shape == "3d":
         train_dataset = datasets.ThreeTrainDataset(
-            CFG, train_folds, transform=True #None #get_transforms(data="audio")
+            CFG, train_folds, transform=True
         )
         valid_dataset = datasets.ThreeTrainDataset(
-            CFG, valid_folds, transform=False #None
+            CFG, valid_folds, transform=False
         )
     else:
         train_dataset = datasets.TrainDataset(
@@ -152,12 +120,12 @@ def train_loop(folds, fold):
         valid_dataset,
         batch_size=42,
         shuffle=False,
-        num_workers=CFG.num_workers,
+        num_workers=42,
         pin_memory=True,
         drop_last=False,
     )
 
-    if ("vit" in CFG.model_name) or ("deit" in CFG.model_name):
+    if ("swin" in CFG.model_name) or ("deit" in CFG.model_name):
         model = models.ViTModel(CFG, pretrained=True)
     elif "v2" in CFG.model_name:
         model = models.V2Model(CFG, pretrained=True)
@@ -170,14 +138,14 @@ def train_loop(folds, fold):
     # base_optimizer = torch.optim.Adam(
     #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
     # )
-    base_optimizer = utils.MADGRAD(
+    # optimizer = utils.MADGRAD(
+    #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
+    # )
+    optimizer = transformers.AdamW(
         model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
     )
-    # optimizer = transformers.AdamW(
-    #     model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
-    # )
 
-    optimizer = utils.Lookahead(base_optimizer, k=5, alpha=0.5)
+    # optimizer = utils.Lookahead(optimizer, k=5, alpha=0.5)
 
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
@@ -186,6 +154,7 @@ def train_loop(folds, fold):
     )
 
     criterion = nn.BCEWithLogitsLoss()
+    # criterion = utils.WeightedFocalLoss()
 
     best_score = 0.0
     best_loss = np.inf
@@ -209,7 +178,8 @@ def train_loop(folds, fold):
             scaler, 
             writer, 
             valid_loader,
-            es
+            es,
+            utils.AutoClip(0.0015)
         )
 
         ave_valid_loss, preds, score = engine.valid_fn(valid_loader, model, criterion)
@@ -253,7 +223,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in [0, 1, 2, 3, 4]:
+    for fold in [0]:
         print(f"training fold {fold}")
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])

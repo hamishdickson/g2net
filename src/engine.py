@@ -5,7 +5,7 @@ from . import utils
 
 from torch.cuda.amp import autocast
 
-def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, scheduler, scaler, writer, valid_loader, es):
+def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, scheduler, scaler, writer, valid_loader, es, clipper):
     losses = utils.AverageMeter()
     # switch to train model
     model.train()
@@ -26,8 +26,10 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
 
         scaler.scale(loss).backward()
 
+        # clipper(model)
+
         scaler.step(optimizer)
-        # if epoch < 3:
+        
         if scheduler:
                 scheduler.step()
         scaler.update()
@@ -41,7 +43,7 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
         if idx % 100 == 0:
             writer.add_scalar(f'Loss/mid-train_{epoch}', losses.avg, idx*CFG.batch_size/48)
 
-        if (idx % 4000 == 0) and (idx > 0):
+        if (epoch == 3) and (idx % 2000 == 0) and (idx > 0):
             ave_valid_loss, preds, score = valid_fn(valid_loader, model, criterion)
             model.train()
             writer.add_scalar('Loss/valid2', ave_valid_loss, (idx+epoch*len(train_loader))*CFG.batch_size/48)

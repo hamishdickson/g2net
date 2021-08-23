@@ -2,6 +2,8 @@ import os
 import random
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 from sklearn.metrics import roc_auc_score
 
@@ -13,7 +15,7 @@ def set_seeds(seed=42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.benchmark = False
 
 
 def get_score(y_true, y_pred):
@@ -41,7 +43,7 @@ class AverageMeter(object):
 
 
 class EarlyStopping:
-    def __init__(self, patience=2, mode="max", delta=0.0002):
+    def __init__(self, patience=2, mode="max", delta=0.00002):
         self.patience = patience
         self.counter = 0
         self.mode = mode
@@ -73,7 +75,7 @@ class EarlyStopping:
                 if self.counter >= self.patience:
                     self.early_stop = True
             else:
-                print("Score didn't improve")
+                print(f"Score didn't improve: score {epoch_score}")
         else:
             self.best_score = score
             self.best_preds = epoch_preds
@@ -332,3 +334,40 @@ class MADGRAD(torch.optim.Optimizer):
 
         self.state['k'] += 1
         return loss
+
+
+class WeightedFocalLoss(nn.Module):
+    "Non weighted version of Focal Loss"
+    def __init__(self, alpha=.25, gamma=2):
+        super(WeightedFocalLoss, self).__init__()
+        self.alpha = torch.tensor([alpha, 1-alpha]).cuda()
+        self.gamma = gamma
+
+    def forward(self, inputs, targets):
+        BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
+        targets = targets.type(torch.long)
+        at = self.alpha.gather(0, targets.data.view(-1))
+        pt = torch.exp(-BCE_loss)
+        F_loss = at*(1-pt)**self.gamma * BCE_loss
+        return F_loss.mean()
+
+class AutoClip:
+    def __init__(self, percentile):
+        self.grad_history = []
+        self.percentile = percentile
+        
+    def compute_grad_norm(self, model):
+        total_norm = 0
+        for p in model.parameters():
+            if p.grad is not None:
+                param_norm = p.grad.data.norm(2)
+                total_norm += param_norm.item() ** 2
+        total_norm = total_norm ** (1. / 2)
+        
+        return total_norm 
+
+    def __call__(self, model):
+        grad_norm = self.compute_grad_norm(model)
+        self.grad_history.append(grad_norm)
+        clip_value = np.percentile(self.grad_history, self.percentile)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)  
