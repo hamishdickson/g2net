@@ -29,7 +29,7 @@ class CFG:
     seed = 42
     n_fold = 5
     epochs = 4
-    batch_size = 64
+    batch_size = 32
     num_workers = 42
     model_name = "tf_efficientnet_b7_ns"
     target_size = 1
