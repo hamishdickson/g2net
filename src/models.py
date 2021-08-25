@@ -20,8 +20,14 @@ class V2Model(nn.Module):
             self.cfg.model_name, pretrained=pretrained, in_chans=3
         )
         self.n_features = self.model.classifier.in_features
+        # self.model.bn2 = nn.BatchNorm2d(1408, eps=0.001, momentum=0.2, affine=True, track_running_stats=True)
         self.model.classifier = nn.Linear(self.n_features, self.cfg.target_size, bias=False)
         # torch.nn.init.normal_(self.model.classifier.weight, std=0.02)
+
+        # self.model.classifier = nn.Sequential(
+        #         nn.Dropout(0.1),
+        #         nn.Linear(self.n_features, self.cfg.target_size, bias=False)
+        #     )
 
         self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=16)
 

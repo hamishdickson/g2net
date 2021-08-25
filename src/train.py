@@ -135,10 +135,13 @@ def train_loop(folds, fold):
         model = models.CustomModel(CFG, pretrained=True)
     model.cuda()
 
-    # base_optimizer = torch.optim.Adam(
+    # optimizer = torch.optim.Adam(
     #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
     # )
     # optimizer = utils.MADGRAD(
+    #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
+    # )
+    # optimizer = utils.RAdam(
     #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
     # )
     optimizer = transformers.AdamW(
