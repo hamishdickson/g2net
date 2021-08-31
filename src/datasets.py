@@ -151,8 +151,10 @@ class ThreeTrainDataset(Dataset):
 
     def apply_qtransform(self, waves):
         hide = random.randint(0, 14)
-        reverser = random.randint(0, 1)
-        scale = 1
+
+        # idea is to highlight different features
+        rescaler = random.randint(0, 2)
+        scale = np.random.normal(1, 0.1)
 
         w0 = waves[0]
         if self.transform:
@@ -161,11 +163,14 @@ class ThreeTrainDataset(Dataset):
             if hide == 0:
                 random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
                 random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
-                w0 = random_no_wave[0]
-                # w0 = np.zeros(w0.shape)
+                # w0 = random_no_wave[0]
+                w0 = np.zeros(w0.shape)
                 
-        w0 = scale * w0 / 5e-20 #3e-21 #4.615211621383077e-20# 7.422368145063434e-21
+        w0 = w0 / 5e-20 #3e-21 #4.615211621383077e-20# 7.422368145063434e-21
         # w0 = scale * w0 / (self.X_0_mean / 1e-6)
+        # if self.transform:
+        #     if rescaler == 1:
+        #         w0 = scale * w0
         w0 = torch.from_numpy(w0).float()
 
         w1 = waves[1]
@@ -177,8 +182,10 @@ class ThreeTrainDataset(Dataset):
                 random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
                 w1 = random_no_wave[1]
                 # w1 = np.zeros(w1.shape)
-        w1 = scale * w1 / 5e-20 #2e-21 # 4.1438353591025024e-20 #7.418562450079042e-21
-
+        w1 = w1 / 5e-20 #2e-21 # 4.1438353591025024e-20 #7.418562450079042e-21
+        # if self.transform:
+        #     if rescaler == 1:
+        #         w1 = scale * w1
         w1 = torch.from_numpy(w1).float()
 
         w2 = waves[2]
@@ -190,8 +197,10 @@ class ThreeTrainDataset(Dataset):
                 random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
                 w2 = random_no_wave[2]
                 # w2 = np.zeros(w2.shape)
-        w2 = scale * w2 / 6e-20 #3.5e-21 #6e-20 #1.837612126304118e-21
-
+        w2 = w2 / 6e-20 #3.5e-21 #6e-20 #1.837612126304118e-21
+        # if self.transform:
+        #     if rescaler == 1:
+        #         w2 = scale * w2
         w2 = torch.from_numpy(w2).float()
         return w0, w1, w2
 

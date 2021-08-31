@@ -5,12 +5,16 @@ from . import utils
 
 from torch.cuda.amp import autocast
 
+from nnAudio.Spectrogram import CQT1992v2
+
 def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, scheduler, scaler, writer, valid_loader, es, clipper):
     losses = utils.AverageMeter()
     # switch to train model
     model.train()
 
     tk0 = tqdm(train_loader, total=len(train_loader))
+
+    is_set = False
 
     for idx, (w0, w1, w2, labels) in enumerate(tk0):
         w0 = w0.cuda()
@@ -26,17 +30,19 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
 
         scaler.scale(loss).backward()
 
-        # clipper(model)
+        clipper(model)
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), CFG.max_grad_norm)
 
         scaler.step(optimizer)
         
-        if scheduler:
-                scheduler.step()
         scaler.update()
         
         # optimizer.zero_grad()
         for param in model.parameters():
             param.grad = None
+
+        if scheduler:
+            scheduler.step()
 
         tk0.set_postfix(train_loss=losses.avg)
 
