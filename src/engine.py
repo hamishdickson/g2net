@@ -47,13 +47,13 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
         tk0.set_postfix(train_loss=losses.avg)
 
         if idx % 100 == 0:
-            writer.add_scalar(f'Loss/mid-train_{epoch}', losses.avg, idx*CFG.batch_size/48)
+            writer.add_scalar(f'Loss/mid-train_{epoch}', losses.avg, idx*CFG.batch_size[CFG.trial]/48)
 
         if (epoch >= 3) and (idx % 2000 == 0) and (idx > 0):
             ave_valid_loss, preds, score = valid_fn(valid_loader, model, criterion)
             model.train()
-            writer.add_scalar('Loss/valid2', ave_valid_loss, (idx+epoch*len(train_loader))*CFG.batch_size/48)
-            writer.add_scalar('roc2', score, (idx+epoch*len(train_loader))*CFG.batch_size/48)
+            writer.add_scalar('Loss/valid2', ave_valid_loss, (idx+epoch*len(train_loader))*CFG.batch_size[CFG.trial]/48)
+            writer.add_scalar('roc2', score, (idx+epoch*len(train_loader))*CFG.batch_size[CFG.trial]/48)
 
             es(score, model, f"models/{CFG.model_name}_fold{fold}_best_score.pth", preds)
             

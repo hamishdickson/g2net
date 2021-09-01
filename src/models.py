@@ -58,11 +58,12 @@ class V2Model(nn.Module):
         # torch.nn.init.normal_(self.model.classifier.weight, std=0.02)
 
         # self.model.classifier = nn.Sequential(
-        #         # nn.Dropout(0.1),
+        #         nn.Dropout(0.1),
         #         nn.Linear(self.n_features, self.cfg.target_size, bias=False)
         #     )
 
-        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=16)
+        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=cfg.resolution[cfg.trial])
+        self.use_bn = cfg.batch_normed
 
 
 
@@ -74,7 +75,9 @@ class V2Model(nn.Module):
 
             x = torch.stack([h, l, v], 1)
 
-            # x = self.bn0(x)
+            if self.use_bn:
+                x = self.bn0(x)
+
             output = self.model(x)
             return output
 

@@ -26,14 +26,18 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class CFG:
+    trial = 999
     seed = 42
-    n_fold = 15
+    n_fold = 5
     epochs = [4]
-    batch_size = 64
-    num_workers = 42
-    model_name = "tf_efficientnet_b3_ns"
+    batch_size = [64]
+    num_workers = 4
+    model_name = "tf_efficientnet_b0_ns"
     target_size = 1
-    lr = [1e-3]
+    lr = [5e-3]
+    resolution = [16]
+    pretrained = True
+    batch_normed = False
     weight_decay = 0 #1e-5
     # max_grad_norm = 1000
     es_round = 3
@@ -82,6 +86,7 @@ def get_transforms(*, data):
 
 def train_loop(folds, trial):
     fold = 0
+    CFG.trial = trial
     writer = SummaryWriter()
     # ====================================================
     # loader
@@ -111,7 +116,7 @@ def train_loop(folds, trial):
 
     train_loader = DataLoader(
         train_dataset,
-        batch_size=CFG.batch_size,
+        batch_size=CFG.batch_size[CFG.trial],
         shuffle=True,
         num_workers=CFG.num_workers,
         pin_memory=True,
@@ -129,7 +134,7 @@ def train_loop(folds, trial):
     if ("swin" in CFG.model_name) or ("deit" in CFG.model_name):
         model = models.ViTModel(CFG, pretrained=False)
     elif CFG.input_shape == "3d":
-        model = models.V2Model(CFG, pretrained=True)
+        model = models.V2Model(CFG, pretrained=CFG.pretrained)
     else:
         model = models.CustomModel(CFG, pretrained=False)
     model.cuda()
@@ -201,8 +206,8 @@ def train_loop(folds, trial):
         writer.add_scalar('Loss/train', ave_train_loss, epoch)
         writer.add_scalar('Loss/valid', ave_valid_loss, epoch)
         writer.add_scalar('roc', score, epoch)
-        writer.add_scalar('Loss/valid2', ave_valid_loss, CFG.batch_size*len(train_loader)*(epoch + 1)/48)
-        writer.add_scalar('roc2', score, CFG.batch_size*len(train_loader)*(epoch + 1)/48)
+        writer.add_scalar('Loss/valid2', ave_valid_loss, CFG.batch_size[CFG.trial]*len(train_loader)*(epoch + 1)/48)
+        writer.add_scalar('roc2', score, CFG.batch_size[CFG.trial]*len(train_loader)*(epoch + 1)/48)
 
         print(f"results for epoch {epoch + 1}: score {score}")
 
@@ -237,7 +242,7 @@ if __name__ == "__main__":
     train = pd.read_csv("input/train_folds.csv")
 
     oof_df = pd.DataFrame()
-    for fold in range(3):
+    for fold in range(len(CFG.epochs)):
         print(f"training fold {fold}")
         _oof_df = train_loop(train, fold)
         oof_df = pd.concat([oof_df, _oof_df])

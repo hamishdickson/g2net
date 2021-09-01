@@ -14,7 +14,7 @@ if __name__ == "__main__":
     print("creating folds")
 
     seed = 42
-    n_fold = 15
+    n_fold = 5
 
     train = pd.read_csv("input/training_labels.csv")
     train["file_path"] = train["id"].apply(get_train_file_path)
