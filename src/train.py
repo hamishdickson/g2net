@@ -32,7 +32,7 @@ class CFG:
     epochs = [4]
     batch_size = [64]
     num_workers = 4
-    model_name = "tf_efficientnet_b0_ns"
+    model_name = "tf_efficientnet_b1_ns"
     target_size = 1
     lr = [5e-3]
     resolution = [16]
