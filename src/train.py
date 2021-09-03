@@ -32,12 +32,12 @@ class CFG:
     trial = 999
     seed = 42
     n_fold = 5
-    epochs = [4 for _ in range(10)]
+    epochs = [5 for _ in range(10)]
     batch_size = [64 for _ in range(10)]
     num_workers = 4
     model_name = "tf_efficientnet_b2_ns"
     target_size = 1
-    lr = [5e-3]
+    lr = [3e-3]
     resolution = [16 for _ in range(10)]
     d0_norm = 5e-20
     d1_norm = 5e-20
@@ -52,39 +52,14 @@ class CFG:
     sample = False
 
 
-def get_transforms(*, data):
-
-    if data == "train":
-        return A.Compose(
-            [   
-                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                ToTensorV2(),
-            ]
-        )
-    elif data == "audio":
-        return Compose([
-            AddGaussianNoise(min_amplitude=0.0001, max_amplitude=0.0015, p=0.2),
-            AddGaussianSNR(p=0.2),
-            # Gain(min_gain_in_db=-15,max_gain_in_db=15,p=0.3)
-        ])
-
-    elif data == "valid":
-        return A.Compose(
-            [   
-                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                ToTensorV2(),
-            ]
-        )
-
 
 def train_loop(folds, fold=0):
     writer = SummaryWriter()
     if CFG.sample:
-        folds = folds.sample(0.1)
+        folds = folds.sample(frac=0.1)
     # ====================================================
     # loader
     # ====================================================
-    # valid_df = pd.read_csv("input/train_folds_poor.csv")
     trn_idx = folds[folds["fold"] != fold].index
     val_idx = folds[folds["fold"] == fold].index
 
@@ -119,10 +94,8 @@ def train_loop(folds, fold=0):
 
     if ("swin" in CFG.model_name) or ("deit" in CFG.model_name):
         model = models.ViTModel(CFG, pretrained=CFG.pretrained)
-    elif CFG.input_shape == "3d":
-        model = models.V2Model(CFG, pretrained=CFG.pretrained)
     else:
-        model = models.CustomModel(CFG, pretrained=CFG.pretrained)
+        model = models.V2Model(CFG, pretrained=CFG.pretrained)
     model.cuda()
 
     # optimizer = torch.optim.Adam(
