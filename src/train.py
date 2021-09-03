@@ -35,7 +35,7 @@ class CFG:
     epochs = [4 for _ in range(10)]
     batch_size = [64 for _ in range(10)]
     num_workers = 4
-    model_name = "tf_efficientnet_b0_ns"
+    model_name = "tf_efficientnet_b2_ns"
     target_size = 1
     lr = [5e-3]
     resolution = [16 for _ in range(10)]
@@ -48,7 +48,8 @@ class CFG:
     # max_grad_norm = 1000
     es_round = 3
     input_shape = "3d"
-    trials = 4
+    trials = 1
+    sample = False
 
 
 def get_transforms(*, data):
@@ -78,6 +79,8 @@ def get_transforms(*, data):
 
 def train_loop(folds, fold=0):
     writer = SummaryWriter()
+    if CFG.sample:
+        folds = folds.sample(0.1)
     # ====================================================
     # loader
     # ====================================================
