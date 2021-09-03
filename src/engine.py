@@ -70,16 +70,26 @@ def valid_fn(valid_loader, model, criterion):
     _labels = []
 
     tk0 = tqdm(valid_loader, total=len(valid_loader))
-    for idx, (w0, w1, w2, labels) in enumerate(tk0):
+    for idx, (w0, w1, w2, w0_, w1_, w2_, labels) in enumerate(tk0):
         w0 = w0.cuda()
         w1 = w1.cuda()
         w2 = w2.cuda()
+        w0_ = w0_.cuda()
+        w1_ = w1_.cuda()
+        w2_ = w2_.cuda()
+
         labels = labels.cuda()
         batch_size = labels.size(0)
         # compute loss
         with autocast():
             with torch.no_grad():
                 y_preds = model(w0, w1, w2)
+                # y_preds += model(w0_, w1, w2)
+                # y_preds += model(w0, w1_, w2)
+                # y_preds += model(w0, w1, w2_)
+
+            # y_preds /= 4
+            
             loss = criterion(y_preds.view(-1), labels)
         losses.update(loss.item(), batch_size)
         # record accuracy

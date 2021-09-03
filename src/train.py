@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 
+from multiprocessing import Process
+from multiprocessing import Queue
+
 import torch
 import torch.nn as nn
 from torch.optim.optimizer import Optimizer
@@ -29,35 +32,24 @@ class CFG:
     trial = 999
     seed = 42
     n_fold = 5
-    epochs = [4]
-    batch_size = [64]
+    epochs = [4 for _ in range(10)]
+    batch_size = [64 for _ in range(10)]
     num_workers = 4
-    model_name = "tf_efficientnet_b1_ns"
+    model_name = "tf_efficientnet_b0_ns"
     target_size = 1
     lr = [5e-3]
-    resolution = [16]
+    resolution = [16 for _ in range(10)]
+    d0_norm = 5e-20
+    d1_norm = 5e-20
+    d2_norm = 6e-20
     pretrained = True
     batch_normed = False
     weight_decay = 0 #1e-5
     # max_grad_norm = 1000
     es_round = 3
     input_shape = "3d"
+    trials = 4
 
-
-# from 2012.12877
-# class CFG:
-#     seed = 42
-#     n_fold = 5
-#     epochs = 10
-#     batch_size = 32
-#     num_workers = 42
-#     model_name = "deit_base_distilled_patch16_224"
-#     target_size = 1
-#     lr = 1e-4 #5e-4*(batch_size)/512
-#     weight_decay = 0.05
-#     max_grad_norm = 1000
-#     es_round = 3
-#     input_shape = "3d"
 
 def get_transforms(*, data):
 
@@ -84,9 +76,7 @@ def get_transforms(*, data):
         )
 
 
-def train_loop(folds, trial):
-    fold = 0
-    CFG.trial = trial
+def train_loop(folds, fold=0):
     writer = SummaryWriter()
     # ====================================================
     # loader
@@ -99,20 +89,13 @@ def train_loop(folds, trial):
     valid_folds = folds.loc[val_idx].reset_index(drop=True)
     valid_labels = valid_folds["target"].values
 
-    if CFG.input_shape == "3d":
-        train_dataset = datasets.ThreeTrainDataset(
-            CFG, train_folds, transform=False
-        )
-        valid_dataset = datasets.ThreeTrainDataset(
-            CFG, valid_folds, transform=False
-        )
-    else:
-        train_dataset = datasets.TrainDataset(
-            CFG, train_folds, transform=False #get_transforms(data="valid")
-        )
-        valid_dataset = datasets.TrainDataset(
-            CFG, valid_folds, transform=None #get_transforms(data="valid")
-        )
+
+    train_dataset = datasets.TrainDataset(
+        CFG, train_folds, transform=False
+    )
+    valid_dataset = datasets.ValidDataset(
+        CFG, valid_folds
+    )
 
     train_loader = DataLoader(
         train_dataset,
@@ -124,7 +107,7 @@ def train_loop(folds, trial):
     )
     valid_loader = DataLoader(
         valid_dataset,
-        batch_size=42,
+        batch_size=512,
         shuffle=False,
         num_workers=42,
         pin_memory=True,
@@ -132,11 +115,11 @@ def train_loop(folds, trial):
     )
 
     if ("swin" in CFG.model_name) or ("deit" in CFG.model_name):
-        model = models.ViTModel(CFG, pretrained=False)
+        model = models.ViTModel(CFG, pretrained=CFG.pretrained)
     elif CFG.input_shape == "3d":
         model = models.V2Model(CFG, pretrained=CFG.pretrained)
     else:
-        model = models.CustomModel(CFG, pretrained=False)
+        model = models.CustomModel(CFG, pretrained=CFG.pretrained)
     model.cuda()
 
     # optimizer = torch.optim.Adam(
@@ -234,6 +217,10 @@ def get_result(result_df):
     print(f"Score: {score:<.4f}")
 
 
+def multiprocess_wrapper(folds, fold, queue):
+    out_df = train_loop(folds, fold)
+    queue.put(out_df)
+
 if __name__ == "__main__":
     print("starting training")
 
@@ -241,14 +228,32 @@ if __name__ == "__main__":
 
     train = pd.read_csv("input/train_folds.csv")
 
-    oof_df = pd.DataFrame()
-    for fold in range(len(CFG.epochs)):
-        print(f"training fold {fold}")
-        _oof_df = train_loop(train, fold)
-        oof_df = pd.concat([oof_df, _oof_df])
-        get_result(_oof_df)
+    
+    for trial in range(CFG.trials):
+        CFG.trial = trial
+        print(f"training trial {trial}")
 
-    print(f"========== CV ==========")
-    get_result(oof_df)
-    # save result
-    oof_df.to_csv("models/oof_df.csv", index=False)
+        oof_df = pd.DataFrame()
+        # all_oofs = []
+        # q = Queue()
+        # processes = []
+
+        # for fold in [0, 1, 2, 3, 4]:
+        #     p = Process(target=multiprocess_wrapper, args=(train, fold, q))
+        #     processes.append(p)
+        #     p.start()
+
+        # for p in processes:
+        #     ret = q.get()
+        #     all_oofs.append(ret)
+
+
+        for fold in [0]:
+            _oof_df = train_loop(train, fold)
+            oof_df = pd.concat([oof_df, _oof_df])
+            get_result(_oof_df)
+
+        print(f"========== CV ==========")
+        get_result(oof_df)
+        # save result
+        oof_df.to_csv("models/oof_df.csv", index=False)

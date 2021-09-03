@@ -75,6 +75,8 @@ class V2Model(nn.Module):
 
             x = torch.stack([h, l, v], 1)
 
+            x = F.interpolate(x, (114, 514))
+
             if self.use_bn:
                 x = self.bn0(x)
 
