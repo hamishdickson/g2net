@@ -37,14 +37,14 @@ class CFG:
     num_workers = 4
     model_name = "tf_efficientnet_b2_ns"
     target_size = 1
-    lr = [3e-3, 3e-3, 3e-3]
+    lr = [3e-3]
     resolution = [16 for _ in range(10)]
     d0_norm = 5e-20
     d1_norm = 5e-20
     d2_norm = 6e-20
     pretrained = True
     batch_normed = False
-    weight_decay = 1e-5
+    weight_decay = [1e-5 for _ in range(10)]
     # max_grad_norm = 1000
     es_round = 3
     input_shape = "3d"
@@ -56,7 +56,7 @@ class CFG:
 def train_loop(folds, fold=0):
     writer = SummaryWriter()
     if CFG.sample:
-        folds = folds.sample(frac=0.1)
+        folds = folds.sample(frac=0.01)
     # ====================================================
     # loader
     # ====================================================
@@ -85,7 +85,7 @@ def train_loop(folds, fold=0):
     )
     valid_loader = DataLoader(
         valid_dataset,
-        batch_size=64,
+        batch_size=CFG.batch_size[CFG.trial] * 2,
         shuffle=False,
         num_workers=8,
         pin_memory=True,
@@ -108,7 +108,7 @@ def train_loop(folds, fold=0):
     #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
     # )
     optimizer = transformers.AdamW(
-        model.parameters(), lr=CFG.lr[trial], weight_decay=CFG.weight_decay
+        model.parameters(), lr=CFG.lr[trial], weight_decay=CFG.weight_decay[trial]
     )
     # optimizer = adabound.AdaBound(model.parameters(), lr=1e-3, final_lr=0.1)
 
@@ -224,7 +224,7 @@ if __name__ == "__main__":
         #     all_oofs.append(ret)
 
 
-        for fold in [0]:
+        for fold in [2,3,4]:
             _oof_df = train_loop(train, fold)
             oof_df = pd.concat([oof_df, _oof_df])
             get_result(_oof_df)

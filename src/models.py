@@ -31,7 +31,7 @@ class V2Model(nn.Module):
         #         nn.Linear(self.n_features, self.cfg.target_size, bias=False)
         #     )
 
-        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=cfg.resolution[cfg.trial])
+        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=cfg.resolution[cfg.trial]) #, bins_per_octave=12, filter_scale=16
         self.use_bn = cfg.batch_normed
 
 
