@@ -20,7 +20,7 @@ class TrainDataset(Dataset):
         self.no_waves = df[df['target'] == 0].reset_index(drop=True)
         self.no_waves_file_names = self.no_waves["file_path"].values
 
-        # self.bHp, self.aHp = scipy.signal.butter(8, (20, 512), btype="bandpass", fs=2048)
+        self.bHp, self.aHp = scipy.signal.butter(8, (20, 512), btype="bandpass", fs=2048)
 
     def __len__(self):
         return len(self.df)
@@ -37,7 +37,7 @@ class TrainDataset(Dataset):
                 w0 = np.zeros(w0.shape)
 
         w0 = w0 / self.cfg.d0_norm # 5e-20 #3e-21 #4.615211621383077e-20# 7.422368145063434e-21
-        # w0 = scipy.signal.lfilter(self.bHp, self.aHp, w0)  
+        w0 = scipy.signal.lfilter(self.bHp, self.aHp, w0)  
         w0 = torch.from_numpy(w0).float()
 
         w1 = waves[1]
@@ -48,7 +48,7 @@ class TrainDataset(Dataset):
                 # w1 = random_no_wave[1]
                 w1 = np.zeros(w1.shape)
         w1 = w1 /self.cfg.d1_norm # 5e-20 #2e-21 # 4.1438353591025024e-20 #7.418562450079042e-21
-        # w1 = scipy.signal.lfilter(self.bHp, self.aHp, w1) 
+        w1 = scipy.signal.lfilter(self.bHp, self.aHp, w1) 
         w1 = torch.from_numpy(w1).float()
 
         w2 = waves[2]
@@ -59,7 +59,7 @@ class TrainDataset(Dataset):
                 # w2 = random_no_wave[2]
                 w2 = np.zeros(w2.shape)
         w2 = w2 / self.cfg.d2_norm #6e-20 #3.5e-21 #6e-20 #1.837612126304118e-21
-        # w2 = scipy.signal.lfilter(self.bHp, self.aHp, w2) 
+        w2 = scipy.signal.lfilter(self.bHp, self.aHp, w2) 
         w2 = torch.from_numpy(w2).float()
         return w0, w1, w2
 
@@ -80,7 +80,7 @@ class ValidDataset(Dataset):
         self.file_names = df["file_path"].values
         self.labels = df["target"].values
         self.cfg = CFG
-        # self.bHp, self.aHp = scipy.signal.butter(8, (20, 512), btype="bandpass", fs=2048)
+        self.bHp, self.aHp = scipy.signal.butter(8, (20, 512), btype="bandpass", fs=2048)
 
     def __len__(self):
         return len(self.df)
@@ -90,19 +90,19 @@ class ValidDataset(Dataset):
 
         w0 = waves[0]
         w0 = w0 / self.cfg.d0_norm
-        # w0 = scipy.signal.lfilter(self.bHp, self.aHp, w0)  
+        w0 = scipy.signal.lfilter(self.bHp, self.aHp, w0)  
         w0 = torch.from_numpy(w0).float()
         w0_ = torch.from_numpy(np.zeros(w0.shape)).float()
 
         w1 = waves[1]
         w1 = w1 /self.cfg.d1_norm
+        w1 = scipy.signal.lfilter(self.bHp, self.aHp, w1) 
         w1 = torch.from_numpy(w1).float()
-        # w1 = scipy.signal.lfilter(self.bHp, self.aHp, w1)  
         w1_ = torch.from_numpy(np.zeros(w1.shape)).float()
 
         w2 = waves[2]
         w2 = w2 / self.cfg.d2_norm
-        # w2 = scipy.signal.lfilter(self.bHp, self.aHp, w2)  
+        w2 = scipy.signal.lfilter(self.bHp, self.aHp, w2)  
         w2 = torch.from_numpy(w2).float()
         w2_ = torch.from_numpy(np.zeros(w2.shape)).float()
 
