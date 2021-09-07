@@ -66,14 +66,14 @@ class ViTModel(nn.Module):
         
         self.neck = nn.Sequential(
                 # nn.Dropout(0.3),
-                nn.Linear(self.out_features, self.embedding_size, bias=True),
+                nn.Linear(self.out_features, self.embedding_size, bias=False),
                 nn.BatchNorm1d(self.embedding_size),
                 torch.nn.PReLU()
             )
         self.head = nn.Linear(self.embedding_size, self.cfg.target_size, bias=False)
         torch.nn.init.normal_(self.head.weight, std=0.02)
 
-        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=16)
+        self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=cfg.resolution[cfg.trial])
 
     def forward(self, h_raw, l_raw, v_raw):
         with autocast():
