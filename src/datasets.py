@@ -9,6 +9,10 @@ import albumentations
 import random
 import scipy
 
+from torch_audiomentations import AddColoredNoise
+
+import colorednoise as cn
+
 class TrainDataset(Dataset):
     def __init__(self, CFG, df, transform=False):
         self.df = df
@@ -22,6 +26,8 @@ class TrainDataset(Dataset):
 
         self.bHp, self.aHp = scipy.signal.butter(8, (20, 512), btype="bandpass", fs=2048)
 
+        self.noise = AddColoredNoise(min_f_decay=0.9, max_f_decay=1.1, p=1)
+
     def __len__(self):
         return len(self.df)
 
@@ -29,38 +35,47 @@ class TrainDataset(Dataset):
         hide = random.randint(0, 5)
 
         w0 = waves[0]
-        if self.transform:
-            if hide == 0:
-                # random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
-                # random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
-                # w0 = random_no_wave[0]
-                w0 = np.zeros(w0.shape)
+        # if self.transform:
+        #     if hide == 0:
+        #         # random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
+        #         # random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
+        #         # w0 = random_no_wave[0]
+        #         w0 = np.zeros(w0.shape)
 
         w0 = w0 / self.cfg.d0_norm # 5e-20 #3e-21 #4.615211621383077e-20# 7.422368145063434e-21
         w0 = scipy.signal.lfilter(self.bHp, self.aHp, w0)  
         w0 = torch.from_numpy(w0).float()
+        if hide == 0:
+            w0 = self.noise(w0.unsqueeze(0).unsqueeze(1), sample_rate=2048).squeeze(0).squeeze(0)
 
         w1 = waves[1]
-        if self.transform:
-            if hide == 1:
-                # random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
-                # random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
-                # w1 = random_no_wave[1]
-                w1 = np.zeros(w1.shape)
+        # if self.transform:
+        #     if hide == 1:
+        #         random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
+        #         random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
+        #         w1 = random_no_wave[1]
+        #         w1 = np.zeros(w1.shape)
         w1 = w1 /self.cfg.d1_norm # 5e-20 #2e-21 # 4.1438353591025024e-20 #7.418562450079042e-21
         w1 = scipy.signal.lfilter(self.bHp, self.aHp, w1) 
         w1 = torch.from_numpy(w1).float()
+        if hide == 1:
+            # print(w1.shape)
+            w1 = self.noise(w1.unsqueeze(0).unsqueeze(1), sample_rate=2048).squeeze(0).squeeze(0)
+            # print(w1.shape)
 
         w2 = waves[2]
-        if self.transform:
-            if hide == 2:
+        # if self.transform:
+        #     if hide == 2:
                 # random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
                 # random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
                 # w2 = random_no_wave[2]
-                w2 = np.zeros(w2.shape)
+                # w2 = np.zeros(w2.shape)
         w2 = w2 / self.cfg.d2_norm #6e-20 #3.5e-21 #6e-20 #1.837612126304118e-21
         w2 = scipy.signal.lfilter(self.bHp, self.aHp, w2) 
         w2 = torch.from_numpy(w2).float()
+        if hide == 2:
+            w2 = self.noise(w2.unsqueeze(0).unsqueeze(1), sample_rate=2048).squeeze(0).squeeze(0)
+
         return w0, w1, w2
 
     def __getitem__(self, idx):

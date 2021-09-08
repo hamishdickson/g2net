@@ -32,19 +32,19 @@ class CFG:
     trial = 999
     seed = 42
     n_fold = 5
-    epochs = [4 for _ in range(10)]
-    batch_size = [42 for _ in range(10)]
+    epochs = [5 for _ in range(10)]
+    batch_size = [64 for _ in range(10)]
     num_workers = 4
-    model_name = "tf_efficientnet_b7_ns"
+    model_name = "tf_efficientnet_b0_ns"
     target_size = 1
-    lr = [1e-3]
+    lr = [3e-3]
     resolution = [16 for _ in range(10)]
     d0_norm = 5e-20
     d1_norm = 5e-20
     d2_norm = 6e-20
     pretrained = True
     batch_normed = False
-    weight_decay = [0 for _ in range(10)]
+    weight_decay = [1e-5 for _ in range(10)]
     # max_grad_norm = 1000
     es_round = 3
     input_shape = "3d"
@@ -56,7 +56,7 @@ class CFG:
 def train_loop(folds, fold=0):
     writer = SummaryWriter()
     if CFG.sample:
-        folds = folds.sample(frac=0.01)
+        folds = folds.sample(frac=0.1)
     # ====================================================
     # loader
     # ====================================================
@@ -114,7 +114,7 @@ def train_loop(folds, fold=0):
 
     # optimizer = utils.Lookahead(optimizer, k=5, alpha=0.5)
 
-    scheduler = transformers.get_cosine_schedule_with_warmup(
+    scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=0, #0.06*CFG.epochs*len(train_loader),
         num_training_steps=CFG.epochs[trial]*len(train_loader)
