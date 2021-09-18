@@ -26,7 +26,7 @@ class TrainDataset(Dataset):
 
         self.bHp, self.aHp = scipy.signal.butter(8, (20, 512), btype="bandpass", fs=2048)
 
-        self.noise = AddColoredNoise(min_f_decay=0.8, max_f_decay=1.2, p=0.4)
+        self.noise = AddColoredNoise(min_f_decay=0.8, max_f_decay=1.2, p=0.2)
 
     def __len__(self):
         return len(self.df)
@@ -35,12 +35,12 @@ class TrainDataset(Dataset):
         hide = random.randint(0, 5)
 
         w0 = waves[0]
-        if self.transform:
-            if hide == 0:
-                # random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
-                # random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
-                # w0 = random_no_wave[0]
-                w0 = np.zeros(w0.shape)
+        # if self.transform:
+        #     if hide == 0:
+        #         # random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
+        #         # random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
+        #         # w0 = random_no_wave[0]
+        #         w0 = np.zeros(w0.shape)
 
         w0 = w0 / self.cfg.d0_norm
         w0 = scipy.signal.lfilter(self.bHp, self.aHp, w0)
@@ -51,12 +51,12 @@ class TrainDataset(Dataset):
             w0 = self.noise(w0.unsqueeze(0).unsqueeze(1), sample_rate=2048).squeeze(0).squeeze(0)
 
         w1 = waves[1]
-        if self.transform:
-            if hide == 1:
-                # random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
-                # random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
-                # w1 = random_no_wave[1]
-                w1 = np.zeros(w1.shape)
+        # if self.transform:
+        #     if hide == 1:
+        #         # random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
+        #         # random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
+        #         # w1 = random_no_wave[1]
+        #         w1 = np.zeros(w1.shape)
         w1 = w1 /self.cfg.d1_norm
         w1 = scipy.signal.lfilter(self.bHp, self.aHp, w1) 
 
@@ -67,12 +67,12 @@ class TrainDataset(Dataset):
 
 
         w2 = waves[2]
-        if self.transform:
-            if hide == 2:
-                # random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
-                # random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
-                # w2 = random_no_wave[2]
-                w2 = np.zeros(w2.shape)
+        # if self.transform:
+        #     if hide == 2:
+        #         # random_no_wave_idx = random.randint(0, len(self.no_waves) - 1)
+        #         # random_no_wave = np.load(self.no_waves_file_names[random_no_wave_idx])
+        #         # w2 = random_no_wave[2]
+        #         w2 = np.zeros(w2.shape)
         w2 = w2 / self.cfg.d2_norm
         w2 = scipy.signal.lfilter(self.bHp, self.aHp, w2)
 

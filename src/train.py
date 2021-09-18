@@ -33,18 +33,18 @@ class CFG:
     seed = 42
     n_fold = 5
     epochs = [5 for _ in range(10)]
-    batch_size = [64 for _ in range(10)]
+    batch_size = [42 for _ in range(10)]
     num_workers = 4
-    model_name = "xcit_tiny_12_p8_224"
+    model_name = "tf_efficientnet_b7_ns"
     target_size = 1
-    lr = [1e-4]
+    lr = [1e-3]
     resolution = [16 for _ in range(10)]
     d0_norm = 5e-20
     d1_norm = 5e-20
     d2_norm = 6e-20
     pretrained = True
     batch_normed = False
-    weight_decay = [0 for _ in range(10)]
+    weight_decay = [1e-8 for _ in range(10)]
     max_grad_norm = 100
     es_round = 3
     input_shape = "3d"
@@ -138,7 +138,7 @@ def train_loop(folds, fold=0):
             writer, 
             valid_loader,
             es,
-            utils.AutoClip(0.9999)
+            utils.AutoClip(0.0015)
         )
 
         ave_valid_loss, preds, score = engine.valid_fn(valid_loader, model, criterion)
@@ -205,7 +205,7 @@ if __name__ == "__main__":
         #     all_oofs.append(ret)
 
 
-        for fold in [0]:
+        for fold in range(CFG.n_fold):
             _oof_df = train_loop(train, fold)
             oof_df = pd.concat([oof_df, _oof_df])
             get_result(_oof_df)

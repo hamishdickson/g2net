@@ -23,12 +23,12 @@ class V2Model(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.model = timm.create_model(
-            self.cfg.model_name, pretrained=pretrained, in_chans=3, img_size=(128, 512)
+            self.cfg.model_name, pretrained=pretrained, in_chans=3#, img_size=(128, 512)
         )
-        self.n_features = self.model.head.in_features
+        self.n_features = self.model.classifier.in_features
         self.embedding_size = 512
         # self.model.bn2 = nn.BatchNorm2d(1408, eps=0.001, momentum=0.2, affine=True, track_running_stats=True)
-        self.model.head = nn.Linear(self.n_features, self.cfg.target_size, bias=False)
+        self.model.classifier = nn.Linear(self.n_features, self.cfg.target_size, bias=False)
         # torch.nn.init.normal_(self.model.head.weight, std=0.02)
 
         self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=cfg.resolution[cfg.trial]) #, bins_per_octave=12, filter_scale=16
