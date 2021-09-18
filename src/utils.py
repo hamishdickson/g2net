@@ -19,7 +19,11 @@ def set_seeds(seed=42):
 
 
 def get_score(y_true, y_pred):
-    score = roc_auc_score(y_true, y_pred)
+    try:
+        score = roc_auc_score(y_true, y_pred)
+    except:
+        print(f"oh no failed!! {y_true}, {y_pred}")
+        score = 0.5
     return score
 
 

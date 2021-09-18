@@ -35,17 +35,17 @@ class CFG:
     epochs = [5 for _ in range(10)]
     batch_size = [64 for _ in range(10)]
     num_workers = 4
-    model_name = "tf_efficientnet_b0_ns"
+    model_name = "xcit_tiny_12_p8_224"
     target_size = 1
-    lr = [3e-3]
+    lr = [1e-4]
     resolution = [16 for _ in range(10)]
     d0_norm = 5e-20
     d1_norm = 5e-20
     d2_norm = 6e-20
     pretrained = True
     batch_normed = False
-    weight_decay = [1e-5 for _ in range(10)]
-    # max_grad_norm = 1000
+    weight_decay = [0 for _ in range(10)]
+    max_grad_norm = 100
     es_round = 3
     input_shape = "3d"
     trials = 1
@@ -56,7 +56,7 @@ class CFG:
 def train_loop(folds, fold=0):
     writer = SummaryWriter()
     if CFG.sample:
-        folds = folds.sample(frac=0.1)
+        folds = folds.sample(frac=0.2)
     # ====================================================
     # loader
     # ====================================================
@@ -69,10 +69,10 @@ def train_loop(folds, fold=0):
 
 
     train_dataset = datasets.TrainDataset(
-        CFG, train_folds, transform=False
+        CFG, train_folds, transform=True
     )
-    valid_dataset = datasets.ValidDataset(
-        CFG, valid_folds
+    valid_dataset = datasets.TrainDataset(
+        CFG, valid_folds, transform=False
     )
 
     train_loader = DataLoader(
@@ -98,21 +98,12 @@ def train_loop(folds, fold=0):
         model = models.V2Model(CFG, pretrained=CFG.pretrained)
     model.cuda()
 
-    # optimizer = torch.optim.Adam(
-    #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
-    # )
-    # optimizer = utils.MADGRAD(
-    #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
-    # )
-    # optimizer = utils.RAdam(
-    #     model.parameters(), lr=CFG.lr #, weight_decay=CFG.weight_decay
-    # )
     optimizer = transformers.AdamW(
         model.parameters(), lr=CFG.lr[trial], weight_decay=CFG.weight_decay[trial]
     )
-    # optimizer = adabound.AdaBound(model.parameters(), lr=1e-3, final_lr=0.1)
-
-    # optimizer = utils.Lookahead(optimizer, k=5, alpha=0.5)
+    # optimizer = torch.optim.SGD(
+    #     model.parameters(), lr=CFG.lr[trial], weight_decay=CFG.weight_decay[trial], momentum=0.9
+    # )
 
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
@@ -121,18 +112,8 @@ def train_loop(folds, fold=0):
     )
 
     # scheduler = None
-    
-    # optimizer = optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-    # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer=optimizer, 
-    #                                           pct_start=0.1, 
-    #                                           div_factor=1e3, 
-    #                                           max_lr=1e-4, 
-    #                                           epochs=CFG.epochs, 
-    #                                           steps_per_epoch=len(train_loader)
-    # )
 
     criterion = nn.BCEWithLogitsLoss()
-    # criterion = utils.BCEFocalLoss()
 
     best_score = 0.0
     best_loss = np.inf
@@ -157,7 +138,7 @@ def train_loop(folds, fold=0):
             writer, 
             valid_loader,
             es,
-            utils.AutoClip(0.0015)
+            utils.AutoClip(0.9999)
         )
 
         ave_valid_loss, preds, score = engine.valid_fn(valid_loader, model, criterion)

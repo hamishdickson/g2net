@@ -13,41 +13,42 @@ from torchaudio.functional import bandpass_biquad
 
 import torchaudio.transforms as T
 
+from dropblock import DropBlock2D
+
+import scipy
+
 
 class V2Model(nn.Module):
     def __init__(self, cfg, pretrained=False):
         super().__init__()
         self.cfg = cfg
         self.model = timm.create_model(
-            self.cfg.model_name, pretrained=pretrained, in_chans=3
+            self.cfg.model_name, pretrained=pretrained, in_chans=3, img_size=(128, 512)
         )
-        self.n_features = self.model.classifier.in_features
+        self.n_features = self.model.head.in_features
+        self.embedding_size = 512
         # self.model.bn2 = nn.BatchNorm2d(1408, eps=0.001, momentum=0.2, affine=True, track_running_stats=True)
-        self.model.classifier = nn.Linear(self.n_features, self.cfg.target_size, bias=False)
-        # torch.nn.init.normal_(self.model.classifier.weight, std=0.02)
-
-        # self.model.classifier = nn.Sequential(
-        #         nn.Dropout(0.1),
-        #         nn.Linear(self.n_features, self.cfg.target_size, bias=False)
-        #     )
+        self.model.head = nn.Linear(self.n_features, self.cfg.target_size, bias=False)
+        # torch.nn.init.normal_(self.model.head.weight, std=0.02)
 
         self.wave_transform = CQT1992v2(sr=2048, fmin=20, fmax=512, hop_length=cfg.resolution[cfg.trial]) #, bins_per_octave=12, filter_scale=16
-        self.use_bn = cfg.batch_normed
 
 
-
-    def forward(self, h_raw, l_raw, v_raw):
+    def forward(self, h_raw, l_raw, v_raw, noise0, noise1, noise2):
         with autocast():
             h = self.wave_transform(h_raw)
+            # h -= noise0
             l = self.wave_transform(l_raw)
+            # l -= noise1
             v = self.wave_transform(v_raw)
+            # v -= noise2
 
             x = torch.stack([h, l, v], 1)
 
             # print(x.shape)
 
-            x = F.interpolate(x, (114, 514))
-            # x = F.interpolate(x, (114, 2050))
+            # x = F.interpolate(x, (114, 514))
+            x = F.interpolate(x, (128, 512))
 
             output = self.model(x)
             return output

@@ -16,6 +16,16 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
 
     is_set = False
 
+    noise0 = np.load("nbs/noise0.npy")
+    noise0 = torch.from_numpy(noise0).float()
+    noise0 = noise0.cuda()
+    noise1 = np.load("nbs/noise1.npy")
+    noise1 = torch.from_numpy(noise1).float()
+    noise1 = noise1.cuda()
+    noise2 = np.load("nbs/noise2.npy")
+    noise2 = torch.from_numpy(noise2).float()
+    noise2 = noise2.cuda()
+
     for idx, (w0, w1, w2, labels) in enumerate(tk0):
         w0 = w0.cuda()
         w1 = w1.cuda()
@@ -23,7 +33,7 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
         labels = labels.cuda()
 
         with autocast():
-            y_preds = model(w0, w1, w2)
+            y_preds = model(w0, w1, w2, noise0, noise1, noise2)
             loss = criterion(y_preds.view(-1), labels)
 
         losses.update(loss.item(), labels.size(0))
@@ -68,22 +78,28 @@ def valid_fn(valid_loader, model, criterion):
     model.eval()
     preds = []
     _labels = []
+    noise0 = np.load("nbs/noise0.npy")
+    noise0 = torch.from_numpy(noise0).float()
+    noise0 = noise0.cuda()
+    noise1 = np.load("nbs/noise1.npy")
+    noise1 = torch.from_numpy(noise1).float()
+    noise1 = noise1.cuda()
+    noise2 = np.load("nbs/noise2.npy")
+    noise2 = torch.from_numpy(noise2).float()
+    noise2 = noise2.cuda()
 
     tk0 = tqdm(valid_loader, total=len(valid_loader))
-    for idx, (w0, w1, w2, w0_, w1_, w2_, labels) in enumerate(tk0):
+    for idx, (w0, w1, w2, labels) in enumerate(tk0):
         w0 = w0.cuda()
         w1 = w1.cuda()
         w2 = w2.cuda()
-        w0_ = w0_.cuda()
-        w1_ = w1_.cuda()
-        w2_ = w2_.cuda()
 
         labels = labels.cuda()
         batch_size = labels.size(0)
         # compute loss
         with autocast():
             with torch.no_grad():
-                y_preds = model(w0, w1, w2)
+                y_preds = model(w0, w1, w2, noise0, noise1, noise2)
                 # y_preds += model(w0_, w1, w2)
                 # y_preds += model(w0, w1_, w2)
                 # y_preds += model(w0, w1, w2_)
