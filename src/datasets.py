@@ -26,7 +26,7 @@ class TrainDataset(Dataset):
 
         self.bHp, self.aHp = scipy.signal.butter(8, (20, 512), btype="bandpass", fs=2048)
 
-        self.noise = AddColoredNoise(min_f_decay=0.8, max_f_decay=1.2, p=0.2)
+        self.noise = AddColoredNoise(min_f_decay=0.9, max_f_decay=1.1, p=0.)
 
     def __len__(self):
         return len(self.df)

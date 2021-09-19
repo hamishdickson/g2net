@@ -26,22 +26,24 @@ from . import utils
 
 import warnings
 
+import optuna
+
 warnings.filterwarnings("ignore")
 
 class CFG:
     trial = 999
     seed = 42
-    n_fold = 5
+    n_fold = 1
     epochs = [5 for _ in range(10)]
-    batch_size = [42 for _ in range(10)]
+    batch_size = [64 for _ in range(10)]
     num_workers = 4
-    model_name = "tf_efficientnet_b7_ns"
+    model_name = "tf_efficientnet_b2_ns"
     target_size = 1
-    lr = [1e-3]
+    lr = [3e-3 for _ in range(10)]
     resolution = [16 for _ in range(10)]
-    d0_norm = 5e-20
-    d1_norm = 5e-20
-    d2_norm = 6e-20
+    d0_norm = 4.5e-20
+    d1_norm = 7.12e-20
+    d2_norm = 3.78e-20
     pretrained = True
     batch_normed = False
     weight_decay = [1e-8 for _ in range(10)]
@@ -56,7 +58,7 @@ class CFG:
 def train_loop(folds, fold=0):
     writer = SummaryWriter()
     if CFG.sample:
-        folds = folds.sample(frac=0.2)
+        folds = folds.sample(frac=0.25)
     # ====================================================
     # loader
     # ====================================================
@@ -164,7 +166,7 @@ def train_loop(folds, fold=0):
         map_location=torch.device("cpu"),
     )["preds"]
 
-    return valid_folds
+    return es.best_score, valid_folds
 
 
 def get_result(result_df):
@@ -174,9 +176,28 @@ def get_result(result_df):
     print(f"Score: {score:<.4f}")
 
 
-def multiprocess_wrapper(folds, fold, queue):
-    out_df = train_loop(folds, fold)
-    queue.put(out_df)
+def objective(trial):
+    params = {
+        "d0": trial.suggest_discrete_uniform("d0", 1e-21, 1e-19, 1e-22),
+        "d1": trial.suggest_discrete_uniform("d1", 1e-21, 1e-19, 1e-22),
+        "d2": trial.suggest_discrete_uniform("d2", 1e-21, 1e-19, 1e-22),
+    }
+
+    CFG.d0_norm = params['d0']
+    CFG.d1_norm = params['d1']
+    CFG.d2_norm = params['d2']
+
+    print(params)
+
+    scores = []
+
+    for fold in range(1):
+        fold_score, _ = train_loop(train, fold)
+        scores.append(fold_score)
+            
+    print(scores)
+    print(f"CV score: {np.array(scores).mean()}")
+    return np.array(scores).mean()
 
 if __name__ == "__main__":
     print("starting training")
@@ -190,23 +211,14 @@ if __name__ == "__main__":
         CFG.trial = trial
         print(f"training trial {trial}")
 
+        # study = optuna.create_study(direction="maximize")
+        # study.optimize(objective, n_trials=25)
+        # print("best params ", study.best_params)
+        
         oof_df = pd.DataFrame()
-        # all_oofs = []
-        # q = Queue()
-        # processes = []
-
-        # for fold in [0, 1, 2, 3, 4]:
-        #     p = Process(target=multiprocess_wrapper, args=(train, fold, q))
-        #     processes.append(p)
-        #     p.start()
-
-        # for p in processes:
-        #     ret = q.get()
-        #     all_oofs.append(ret)
-
 
         for fold in range(CFG.n_fold):
-            _oof_df = train_loop(train, fold)
+            _, _oof_df = train_loop(train, fold)
             oof_df = pd.concat([oof_df, _oof_df])
             get_result(_oof_df)
 
