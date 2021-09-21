@@ -26,7 +26,7 @@ class TrainDataset(Dataset):
 
         self.bHp, self.aHp = scipy.signal.butter(8, (20, 512), btype="bandpass", fs=2048)
 
-        self.noise = AddColoredNoise(min_f_decay=0.9, max_f_decay=1.1, p=0.)
+        self.noise = AddColoredNoise(min_f_decay=0.9, max_f_decay=1.1, p=CFG.pink_noise)
 
     def __len__(self):
         return len(self.df)
@@ -44,7 +44,7 @@ class TrainDataset(Dataset):
 
         w0 = w0 / self.cfg.d0_norm
         w0 = scipy.signal.lfilter(self.bHp, self.aHp, w0)
-        w0 = w0 * scipy.signal.tukey(4096, alpha=0.25)
+        # w0 = w0 * scipy.signal.tukey(4096, alpha=0.25)
 
         w0 = torch.from_numpy(w0).float()
         if self.transform:
@@ -60,7 +60,7 @@ class TrainDataset(Dataset):
         w1 = w1 /self.cfg.d1_norm
         w1 = scipy.signal.lfilter(self.bHp, self.aHp, w1) 
 
-        w1 = w1 * scipy.signal.tukey(4096, alpha=0.25)
+        # w1 = w1 * scipy.signal.tukey(4096, alpha=0.25)
         w1 = torch.from_numpy(w1).float()
         if self.transform:
             w1 = self.noise(w1.unsqueeze(0).unsqueeze(1), sample_rate=2048).squeeze(0).squeeze(0)
@@ -76,7 +76,7 @@ class TrainDataset(Dataset):
         w2 = w2 / self.cfg.d2_norm
         w2 = scipy.signal.lfilter(self.bHp, self.aHp, w2)
 
-        w2 = w2 * scipy.signal.tukey(4096, alpha=0.25)
+        # w2 = w2 * scipy.signal.tukey(4096, alpha=0.25)
         w2 = torch.from_numpy(w2).float()
 
         if self.transform:

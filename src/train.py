@@ -33,20 +33,22 @@ warnings.filterwarnings("ignore")
 class CFG:
     trial = 999
     seed = 42
-    n_fold = 1
+    n_fold = 5
     epochs = [5 for _ in range(10)]
     batch_size = [64 for _ in range(10)]
-    num_workers = 4
-    model_name = "tf_efficientnet_b2_ns"
+    num_workers = 8
+    model_name = "tf_efficientnet_b0_ns"
     target_size = 1
-    lr = [3e-3 for _ in range(10)]
+    lr = 3e-3
     resolution = [16 for _ in range(10)]
     d0_norm = 4.5e-20
     d1_norm = 7.12e-20
     d2_norm = 3.78e-20
     pretrained = True
     batch_normed = False
-    weight_decay = [1e-8 for _ in range(10)]
+    weight_decay = [1e-5 for _ in range(10)]
+    image_width_factor = 2
+    pink_noise = 0.3
     max_grad_norm = 100
     es_round = 3
     input_shape = "3d"
@@ -58,7 +60,7 @@ class CFG:
 def train_loop(folds, fold=0):
     writer = SummaryWriter()
     if CFG.sample:
-        folds = folds.sample(frac=0.25)
+        folds = folds.sample(frac=0.2)
     # ====================================================
     # loader
     # ====================================================
@@ -71,7 +73,7 @@ def train_loop(folds, fold=0):
 
 
     train_dataset = datasets.TrainDataset(
-        CFG, train_folds, transform=True
+        CFG, train_folds, transform=False
     )
     valid_dataset = datasets.TrainDataset(
         CFG, valid_folds, transform=False
@@ -101,16 +103,16 @@ def train_loop(folds, fold=0):
     model.cuda()
 
     optimizer = transformers.AdamW(
-        model.parameters(), lr=CFG.lr[trial], weight_decay=CFG.weight_decay[trial]
+        model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay[trial]
     )
     # optimizer = torch.optim.SGD(
-    #     model.parameters(), lr=CFG.lr[trial], weight_decay=CFG.weight_decay[trial], momentum=0.9
+    #     model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay[trial], momentum=0.9
     # )
 
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=0, #0.06*CFG.epochs*len(train_loader),
-        num_training_steps=CFG.epochs[trial]*len(train_loader)
+        num_training_steps=(100 + CFG.epochs[trial]*len(train_loader))
     )
 
     # scheduler = None
@@ -178,14 +180,18 @@ def get_result(result_df):
 
 def objective(trial):
     params = {
-        "d0": trial.suggest_discrete_uniform("d0", 1e-21, 1e-19, 1e-22),
-        "d1": trial.suggest_discrete_uniform("d1", 1e-21, 1e-19, 1e-22),
-        "d2": trial.suggest_discrete_uniform("d2", 1e-21, 1e-19, 1e-22),
+        # "d0": trial.suggest_discrete_uniform("d0", 1e-21, 1e-19, 1e-22),
+        # "d1": trial.suggest_discrete_uniform("d1", 1e-21, 1e-19, 1e-22),
+        # "d2": trial.suggest_discrete_uniform("d2", 1e-21, 1e-19, 1e-22),
+        "lr": trial.suggest_discrete_uniform("lr", 1e-3, 5e-3, 1e-4),
+        "pink_noise": trial.suggest_discrete_uniform("pink_noise", 0, 0.3, 0.01),
     }
 
-    CFG.d0_norm = params['d0']
-    CFG.d1_norm = params['d1']
-    CFG.d2_norm = params['d2']
+    # CFG.d0_norm = params['d0']
+    # CFG.d1_norm = params['d1']
+    # CFG.d2_norm = params['d2']
+    CFG.lr = params['lr']
+    CFG.pink_noise = params['pink_noise']
 
     print(params)
 
@@ -212,7 +218,7 @@ if __name__ == "__main__":
         print(f"training trial {trial}")
 
         # study = optuna.create_study(direction="maximize")
-        # study.optimize(objective, n_trials=25)
+        # study.optimize(objective, n_trials=10)
         # print("best params ", study.best_params)
         
         oof_df = pd.DataFrame()

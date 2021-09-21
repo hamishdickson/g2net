@@ -47,7 +47,7 @@ class V2Model(nn.Module):
 
             # print(x.shape)
 
-            # x = F.interpolate(x, (114, 514))
+            x = F.interpolate(x, (114, 257*self.cfg.image_width_factor))
             # x = F.interpolate(x, (128, 512))
 
             output = self.model(x)
