@@ -33,27 +33,28 @@ warnings.filterwarnings("ignore")
 class CFG:
     trial = 999
     seed = 42
-    n_fold = 5
-    epochs = [5 for _ in range(10)]
-    batch_size = [64 for _ in range(10)]
+    n_fold = 1
+    epochs = 4
+    batch_size = 64
     num_workers = 8
-    model_name = "tf_efficientnet_b0_ns"
+    model_name = "resnet34"
     target_size = 1
-    lr = 3e-3
-    resolution = [16 for _ in range(10)]
+    lr = 3.6e-3
+    resolution = 16
     d0_norm = 4.5e-20
     d1_norm = 7.12e-20
     d2_norm = 3.78e-20
     pretrained = True
     batch_normed = False
-    weight_decay = [1e-5 for _ in range(10)]
+    weight_decay = 0 #1e-5
     image_width_factor = 2
-    pink_noise = 0.3
-    max_grad_norm = 100
+    pink_noise = 0.
+    max_grad_norm = 1000
     es_round = 3
     input_shape = "3d"
     trials = 1
     sample = False
+    alpha = 0.25
 
 
 
@@ -73,7 +74,7 @@ def train_loop(folds, fold=0):
 
 
     train_dataset = datasets.TrainDataset(
-        CFG, train_folds, transform=False
+        CFG, train_folds, transform=True
     )
     valid_dataset = datasets.TrainDataset(
         CFG, valid_folds, transform=False
@@ -81,7 +82,7 @@ def train_loop(folds, fold=0):
 
     train_loader = DataLoader(
         train_dataset,
-        batch_size=CFG.batch_size[CFG.trial],
+        batch_size=CFG.batch_size,
         shuffle=True,
         num_workers=CFG.num_workers,
         pin_memory=True,
@@ -89,7 +90,7 @@ def train_loop(folds, fold=0):
     )
     valid_loader = DataLoader(
         valid_dataset,
-        batch_size=CFG.batch_size[CFG.trial] * 2,
+        batch_size=CFG.batch_size * 2,
         shuffle=False,
         num_workers=8,
         pin_memory=True,
@@ -103,16 +104,16 @@ def train_loop(folds, fold=0):
     model.cuda()
 
     optimizer = transformers.AdamW(
-        model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay[trial]
+        model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay
     )
     # optimizer = torch.optim.SGD(
-    #     model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay[trial], momentum=0.9
+    #     model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay, momentum=0.9
     # )
 
     scheduler = transformers.get_linear_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=0, #0.06*CFG.epochs*len(train_loader),
-        num_training_steps=(100 + CFG.epochs[trial]*len(train_loader))
+        num_training_steps=CFG.epochs*len(train_loader)
     )
 
     # scheduler = None
@@ -128,7 +129,7 @@ def train_loop(folds, fold=0):
 
     es = utils.EarlyStopping(patience=100)
 
-    for epoch in range(CFG.epochs[trial]):
+    for epoch in range(CFG.epochs):
         ave_train_loss = engine.train_fn(
             epoch, 
             fold,
@@ -150,8 +151,8 @@ def train_loop(folds, fold=0):
         writer.add_scalar('Loss/train', ave_train_loss, epoch)
         writer.add_scalar('Loss/valid', ave_valid_loss, epoch)
         writer.add_scalar('roc', score, epoch)
-        writer.add_scalar('Loss/valid2', ave_valid_loss, CFG.batch_size[CFG.trial]*len(train_loader)*(epoch + 1)/48)
-        writer.add_scalar('roc2', score, CFG.batch_size[CFG.trial]*len(train_loader)*(epoch + 1)/48)
+        writer.add_scalar('Loss/valid2', ave_valid_loss, CFG.batch_size*len(train_loader)*(epoch + 1)/48)
+        writer.add_scalar('roc2', score, CFG.batch_size*len(train_loader)*(epoch + 1)/48)
 
         print(f"results for epoch {epoch + 1}: score {score}")
 
@@ -180,11 +181,13 @@ def get_result(result_df):
 
 def objective(trial):
     params = {
-        # "d0": trial.suggest_discrete_uniform("d0", 1e-21, 1e-19, 1e-22),
-        # "d1": trial.suggest_discrete_uniform("d1", 1e-21, 1e-19, 1e-22),
-        # "d2": trial.suggest_discrete_uniform("d2", 1e-21, 1e-19, 1e-22),
-        "lr": trial.suggest_discrete_uniform("lr", 1e-3, 5e-3, 1e-4),
+        # "d0": trial.suggest_discrete_uniform("d0", 4e-20, 5e-20, 1e-21),
+        # "d1": trial.suggest_discrete_uniform("d1", 4e-20, 8e-20, 1e-21),
+        # "d2": trial.suggest_discrete_uniform("d2", 1e-20, 4e-20, 1e-21),
+        "lr": trial.suggest_discrete_uniform("lr", 8e-4, 5e-3, 5e-5),
         "pink_noise": trial.suggest_discrete_uniform("pink_noise", 0, 0.3, 0.01),
+        "wd": trial.suggest_loguniform("wd", 1e-8, 1e-3)
+        # "alpha": trial.suggest_discrete_uniform("alpha", 0.05, 0.5, 0.01),
     }
 
     # CFG.d0_norm = params['d0']
@@ -192,6 +195,8 @@ def objective(trial):
     # CFG.d2_norm = params['d2']
     CFG.lr = params['lr']
     CFG.pink_noise = params['pink_noise']
+    CFG.weight_decay = params['wd']
+    # CFG.alpha = params['alpha']
 
     print(params)
 
@@ -217,18 +222,18 @@ if __name__ == "__main__":
         CFG.trial = trial
         print(f"training trial {trial}")
 
-        # study = optuna.create_study(direction="maximize")
-        # study.optimize(objective, n_trials=10)
-        # print("best params ", study.best_params)
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=15)
+        print("best params ", study.best_params)
         
-        oof_df = pd.DataFrame()
+        # oof_df = pd.DataFrame()
 
-        for fold in range(CFG.n_fold):
-            _, _oof_df = train_loop(train, fold)
-            oof_df = pd.concat([oof_df, _oof_df])
-            get_result(_oof_df)
+        # for fold in range(CFG.n_fold):
+        #     _, _oof_df = train_loop(train, fold)
+        #     oof_df = pd.concat([oof_df, _oof_df])
+        #     get_result(_oof_df)
 
-        print(f"========== CV ==========")
-        get_result(oof_df)
-        # save result
-        oof_df.to_csv("models/oof_df.csv", index=False)
+        # print(f"========== CV ==========")
+        # get_result(oof_df)
+        # # save result
+        # oof_df.to_csv("models/oof_df.csv", index=False)

@@ -7,6 +7,8 @@ import torch.nn.functional as F
 
 from sklearn.metrics import roc_auc_score
 
+import optuna
+
 
 def set_seeds(seed=42):
     random.seed(seed)
@@ -22,8 +24,9 @@ def get_score(y_true, y_pred):
     try:
         score = roc_auc_score(y_true, y_pred)
     except:
-        print(f"oh no failed!! {y_true}, {y_pred}")
-        score = 0.5
+        raise optuna.exceptions.TrialPruned()
+        # print(f"oh no failed!! {y_true}, {y_pred}")
+        # score = 0.5
     return score
 
 

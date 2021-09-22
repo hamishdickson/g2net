@@ -16,31 +16,23 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
 
     is_set = False
 
-    noise0 = np.load("nbs/noise0.npy")
-    noise0 = torch.from_numpy(noise0).float()
-    noise0 = noise0.cuda()
-    noise1 = np.load("nbs/noise1.npy")
-    noise1 = torch.from_numpy(noise1).float()
-    noise1 = noise1.cuda()
-    noise2 = np.load("nbs/noise2.npy")
-    noise2 = torch.from_numpy(noise2).float()
-    noise2 = noise2.cuda()
 
-    for idx, (w0, w1, w2, labels) in enumerate(tk0):
+    for idx, (w0, w1, w2, labels, m0, m1, m2, s0, s1, s2) in enumerate(tk0):
         w0 = w0.cuda()
         w1 = w1.cuda()
         w2 = w2.cuda()
         labels = labels.cuda()
+        m0, m1, m2, s0, s1, s2 = m0.cuda(), m1.cuda(), m2.cuda(), s0.cuda(), s1.cuda(), s2.cuda()
 
         with autocast():
-            y_preds = model(w0, w1, w2, noise0, noise1, noise2)
+            y_preds = model(w0, w1, w2, m0, m1, m2, s0, s1, s2)
             loss = criterion(y_preds.view(-1), labels)
 
         losses.update(loss.item(), labels.size(0))
 
         scaler.scale(loss).backward()
 
-        clipper(model)
+        # clipper(model)
         # torch.nn.utils.clip_grad_norm_(model.parameters(), CFG.max_grad_norm)
 
         scaler.step(optimizer)
@@ -57,13 +49,13 @@ def train_fn(epoch, fold, CFG, model, train_loader, criterion, optimizer, schedu
         tk0.set_postfix(train_loss=losses.avg)
 
         if idx % 100 == 0:
-            writer.add_scalar(f'Loss/mid-train_{epoch}', losses.avg, idx*CFG.batch_size[CFG.trial]/48)
+            writer.add_scalar(f'Loss/mid-train_{epoch}', losses.avg, idx*CFG.batch_size/48)
 
         if (epoch >= 3) and (idx % 2000 == 0) and (idx > 0):
             ave_valid_loss, preds, score = valid_fn(valid_loader, model, criterion)
             model.train()
-            writer.add_scalar('Loss/valid2', ave_valid_loss, (idx+epoch*len(train_loader))*CFG.batch_size[CFG.trial]/48)
-            writer.add_scalar('roc2', score, (idx+epoch*len(train_loader))*CFG.batch_size[CFG.trial]/48)
+            writer.add_scalar('Loss/valid2', ave_valid_loss, (idx+epoch*len(train_loader))*CFG.batch_size/48)
+            writer.add_scalar('roc2', score, (idx+epoch*len(train_loader))*CFG.batch_size/48)
 
             es(score, model, f"models/{CFG.model_name}_fold{fold}_best_score.pth", preds)
             
@@ -78,28 +70,21 @@ def valid_fn(valid_loader, model, criterion):
     model.eval()
     preds = []
     _labels = []
-    noise0 = np.load("nbs/noise0.npy")
-    noise0 = torch.from_numpy(noise0).float()
-    noise0 = noise0.cuda()
-    noise1 = np.load("nbs/noise1.npy")
-    noise1 = torch.from_numpy(noise1).float()
-    noise1 = noise1.cuda()
-    noise2 = np.load("nbs/noise2.npy")
-    noise2 = torch.from_numpy(noise2).float()
-    noise2 = noise2.cuda()
+
 
     tk0 = tqdm(valid_loader, total=len(valid_loader))
-    for idx, (w0, w1, w2, labels) in enumerate(tk0):
+    for idx, (w0, w1, w2, labels, m0, m1, m2, s0, s1, s2) in enumerate(tk0):
         w0 = w0.cuda()
         w1 = w1.cuda()
         w2 = w2.cuda()
-
         labels = labels.cuda()
+        m0, m1, m2, s0, s1, s2 = m0.cuda(), m1.cuda(), m2.cuda(), s0.cuda(), s1.cuda(), s2.cuda()
+
         batch_size = labels.size(0)
         # compute loss
         with autocast():
             with torch.no_grad():
-                y_preds = model(w0, w1, w2, noise0, noise1, noise2)
+                y_preds = model(w0, w1, w2, m0, m1, m2, s0, s1, s2)
                 # y_preds += model(w0_, w1, w2)
                 # y_preds += model(w0, w1_, w2)
                 # y_preds += model(w0, w1, w2_)
